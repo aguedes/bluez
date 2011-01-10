@@ -39,7 +39,10 @@
 #include "server.h"
 
 #define CURRENT_TIME_SVC_UUID		0x1805
+#define REF_TIME_UPDATE_SVC_UUID	0x1806
 
+#define TIME_UPDATE_CTRL_CHR_UUID	0x2A16
+#define TIME_UPDATE_STAT_CHR_UUID	0x2A17
 #define CT_TIME_CHR_UUID		0x2A2B
 
 static uint8_t current_time_read(struct attribute *a, gpointer user_data)
@@ -87,12 +90,57 @@ static void register_current_time_service(void)
 							ATT_CHAR_PROPER_NOTIFY,
 				GATT_OPT_CHR_VALUE_CB, ATTRIB_READ,
 							current_time_read,
+
+				GATT_OPT_INVALID);
+}
+
+static uint8_t time_update_control(struct attribute *a, gpointer user_data)
+{
+	DBG("handle 0x%04x", a->handle);
+
+	if (a->len != 1)
+		DBG("Invalid control point value size: %d", a->len);
+
+	return 0;
+}
+
+static uint8_t time_update_status(struct attribute *a, gpointer user_data)
+{
+	uint8_t value[2];
+
+	DBG("handle 0x%04x", a->handle);
+
+	value[0] = UPDATE_STATE_IDLE;
+	value[1] = UPDATE_RESULT_SUCCESSFUL;
+	attrib_db_update(a->handle, NULL, value, sizeof(value), NULL);
+
+	return 0;
+}
+
+static void register_reference_time_update_service(void)
+{
+	/* Reference Time Update service */
+	gatt_service_add(GATT_PRIM_SVC_UUID, REF_TIME_UPDATE_SVC_UUID,
+				/* Time Update control point */
+				GATT_OPT_CHR_UUID, TIME_UPDATE_CTRL_CHR_UUID,
+				GATT_OPT_CHR_PROPS,
+					ATT_CHAR_PROPER_WRITE_WITHOUT_RESP,
+				GATT_OPT_CHR_VALUE_CB, ATTRIB_WRITE,
+							time_update_control,
+
+				/* Time Update status */
+				GATT_OPT_CHR_UUID, TIME_UPDATE_STAT_CHR_UUID,
+				GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_READ,
+				GATT_OPT_CHR_VALUE_CB, ATTRIB_READ,
+							time_update_status,
+
 				GATT_OPT_INVALID);
 }
 
 int time_server_init(void)
 {
 	register_current_time_service();
+	register_reference_time_update_service();
 
 	return 0;
 }
