@@ -135,6 +135,7 @@ struct btd_device {
 	gboolean	trusted;
 	gboolean	paired;
 	gboolean	blocked;
+	gboolean	whitelisted;
 
 	gboolean	authorizing;
 	gint		ref;
@@ -318,6 +319,10 @@ static DBusMessage *get_properties(DBusConnection *conn,
 	dict_append_entry(&dict, "Connected", DBUS_TYPE_BOOLEAN,
 							&device->connected);
 
+	/* Whitelisted */
+	boolean = device->whitelisted;
+	dict_append_entry(&dict, "Whitelisted", DBUS_TYPE_BOOLEAN, &boolean);
+
 	/* UUIDs */
 	str = g_new0(char *, g_slist_length(device->uuids) + 1);
 	for (i = 0, l = device->uuids; l; l = l->next, i++)
@@ -402,6 +407,40 @@ static DBusMessage *set_trust(DBusConnection *conn, DBusMessage *msg,
 				DBUS_TYPE_BOOLEAN, &value);
 
 	return dbus_message_new_method_return(msg);
+}
+
+static DBusMessage *set_whitelisted(DBusConnection *conn, DBusMessage *msg,
+						gboolean value, void *data)
+{
+	struct btd_device *device = data;
+	int err;
+
+	if (device->whitelisted == value)
+		return dbus_message_new_method_return(msg);
+
+	/* FIXME: missing storage */
+
+	if (value)
+		err = adapter_wl_add(device->adapter, &device->bdaddr,
+							LE_PUBLIC_ADDRESS);
+	else
+		err = adapter_wl_remove(device->adapter, &device->bdaddr,
+							LE_PUBLIC_ADDRESS);
+
+	switch (-err) {
+	case 0:
+		device->whitelisted = value;
+
+		emit_property_changed(conn, dbus_message_get_path(msg),
+					DEVICE_INTERFACE, "whitelisted",
+					DBUS_TYPE_BOOLEAN, &value);
+
+		return dbus_message_new_method_return(msg);
+	case EINVAL:
+		return btd_error_failed(msg, "Kernel lacks Whitelist support");
+	default:
+		return btd_error_failed(msg, strerror(-err));
+	}
 }
 
 static void driver_remove(struct btd_device_driver *driver,
@@ -552,6 +591,15 @@ static DBusMessage *set_property(DBusConnection *conn,
 		dbus_message_iter_get_basic(&sub, &value);
 
 		return set_blocked(conn, msg, value, data);
+	} else if (g_str_equal("Whitelisted", property)) {
+		dbus_bool_t value;
+
+		if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_BOOLEAN)
+			return btd_error_invalid_args(msg);
+
+		dbus_message_iter_get_basic(&sub, &value);
+
+		return set_whitelisted(conn, msg, value, data);
 	}
 
 	return btd_error_invalid_args(msg);

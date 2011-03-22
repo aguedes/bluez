@@ -165,6 +165,17 @@ Properties	string Address [readonly]
 			drivers will also be removed and no new ones will
 			be probed as long as the device is blocked.
 
+		boolean Whitelisted [readwrite]
+
+			If set to true the address of the remote device will be
+			added to the adapter's white list. This will enable
+			the adapter to automatic connect to this device once
+			the device is in-range and white list connections are
+			enabled.
+
+			If set to false the address of the remote device will
+			be removed from the white list.
+
 		string Alias [readwrite]
 
 			The name alias for the remote device. The alias can
