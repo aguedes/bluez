@@ -3461,6 +3461,40 @@ static int hciops_remove_uuid(int index, uuid_t *uuid)
 	return update_service_classes(index);
 }
 
+static int hciops_add_wl(int index, bdaddr_t *bdaddr, uint8_t type)
+{
+	struct dev_info *dev = &devs[index];
+	le_add_device_to_white_list_cp cp;
+
+	memset(&cp, 0, sizeof(cp));
+	cp.bdaddr_type = type;
+	bacpy(&cp.bdaddr, bdaddr);
+
+	if (hci_send_cmd(dev->sk, OGF_LE_CTL,
+			OCF_LE_ADD_DEVICE_TO_WHITE_LIST,
+			LE_ADD_DEVICE_TO_WHITE_LIST_CP_SIZE, &cp) < 0)
+		return -errno;
+
+	return 0;
+}
+
+static int hciops_remove_wl(int index, bdaddr_t *bdaddr, uint8_t type)
+{
+	struct dev_info *dev = &devs[index];
+	le_remove_device_from_white_list_cp cp;
+
+	memset(&cp, 0, sizeof(cp));
+	cp.bdaddr_type = type;
+	bacpy(&cp.bdaddr, bdaddr);
+
+	if (hci_send_cmd(dev->sk, OGF_LE_CTL,
+			OCF_LE_REMOVE_DEVICE_FROM_WHITE_LIST,
+			LE_REMOVE_DEVICE_FROM_WHITE_LIST_CP_SIZE, &cp) < 0)
+		return -errno;
+
+	return 0;
+}
+
 static int hciops_disable_cod_cache(int index)
 {
 	struct dev_info *dev = &devs[index];
@@ -3717,6 +3751,8 @@ static struct btd_adapter_ops hci_ops = {
 	.set_did = hciops_set_did,
 	.add_uuid = hciops_add_uuid,
 	.remove_uuid = hciops_remove_uuid,
+	.add_wl = hciops_add_wl,
+	.remove_wl = hciops_remove_wl,
 	.disable_cod_cache = hciops_disable_cod_cache,
 	.restore_powered = hciops_restore_powered,
 	.load_keys = hciops_load_keys,
