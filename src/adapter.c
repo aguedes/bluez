@@ -60,6 +60,8 @@
 #include "att.h"
 #include "gattrib.h"
 #include "attrib/client.h"
+#include "gatt.h"
+#include "btio.h"
 
 /* Interleaved discovery window: 5.12 sec */
 #define GAP_INTER_DISCOV_WIN		5120
@@ -81,6 +83,13 @@
 #define IO_CAPABILITY_KEYBOARDONLY	0x02
 #define IO_CAPABILITY_NOINPUTNOOUTPUT	0x03
 #define IO_CAPABILITY_INVALID		0xFF
+
+/*
+ * The white list connect interval should be greater than l2cap connect()
+ * timeout. This will prevent calling wl_connect() while there is a pending
+ * white list connection attempt.
+ */
+#define WHITELIST_INTERVAL		60
 
 #define check_address(address) bachk(address)
 
@@ -142,6 +151,8 @@ struct btd_adapter {
 	struct hci_dev dev;		/* hci info */
 	gboolean pairable;		/* pairable state */
 	gboolean initialized;
+	guint wl_connect_id;		/* White list connect event id */
+	GIOChannel *wl_conn;		/* Pending white list connection */
 
 	gboolean off_requested;		/* DEVDOWN ioctl was called */
 
@@ -2572,6 +2583,8 @@ int btd_adapter_stop(struct btd_adapter *adapter)
 {
 	gboolean powered, discoverable, pairable;
 
+	adapter_wl_disable(adapter);
+
 	/* cancel pending timeout */
 	if (adapter->discov_timeout_id) {
 		g_source_remove(adapter->discov_timeout_id);
@@ -3765,4 +3778,94 @@ int btd_adapter_remove_remote_oob_data(struct btd_adapter *adapter,
 							bdaddr_t *bdaddr)
 {
 	return adapter_ops->remove_remote_oob_data(adapter->dev_id, bdaddr);
+}
+
+int adapter_wl_add(struct btd_adapter *adapter, bdaddr_t *bdaddr,
+								uint8_t type)
+{
+	return adapter_ops->add_wl(adapter->dev_id, bdaddr, type);
+}
+
+int adapter_wl_remove(struct btd_adapter *adapter, bdaddr_t *bdaddr,
+								uint8_t type)
+{
+	return adapter_ops->remove_wl(adapter->dev_id, bdaddr, type);
+}
+
+static void wl_connect_cb(GIOChannel *io, GError *gerr, gpointer user_data)
+{
+	struct btd_adapter *adapter = user_data;
+
+	if (adapter->wl_conn == NULL) {
+		DBG("Warning: There is no pending white list connection, "
+					"shutting this connection down");
+		g_io_channel_shutdown(io, FALSE, NULL);
+		return;
+	}
+
+	adapter->wl_conn = NULL;
+
+	if (gerr) {
+		DBG("%s", gerr->message);
+		g_io_channel_shutdown(io, FALSE, NULL);
+		return;
+	}
+
+	/* TODO: handle white list connection here */
+
+	DBG("Adapter connected via white list");
+}
+
+static gboolean wl_connect(gpointer user_data)
+{
+	struct btd_adapter *adapter = user_data;
+	bdaddr_t dba;
+
+	if (adapter->wl_conn) {
+		DBG("Warning: There is a pending white list connection "
+						"attempt, shutting it down");
+		g_io_channel_shutdown(adapter->wl_conn, FALSE, NULL);
+	}
+
+	bacpy(&dba, BDADDR_WL);
+	adapter->wl_conn = bt_io_connect(BT_IO_L2CAP, wl_connect_cb,
+					adapter, NULL, NULL,
+					BT_IO_OPT_SOURCE_BDADDR,
+					&adapter->bdaddr,
+					BT_IO_OPT_DEST_BDADDR, &dba,
+					BT_IO_OPT_CID, GATT_CID,
+					BT_IO_OPT_INVALID);
+
+	return TRUE;
+}
+
+int adapter_wl_enable(struct btd_adapter *adapter)
+{
+	/* If white list is already enabled, return success */
+	if (adapter->wl_connect_id)
+		return 0;
+
+	wl_connect(adapter);
+	adapter->wl_connect_id = g_timeout_add_seconds(WHITELIST_INTERVAL,
+							wl_connect, adapter);
+
+	return 0;
+}
+
+int adapter_wl_disable(struct btd_adapter *adapter)
+{
+	/* If white list is already disabled return success */
+	if (adapter->wl_connect_id == 0)
+		return 0;
+
+	g_source_remove(adapter->wl_connect_id);
+	adapter->wl_connect_id = 0;
+
+	/* Remove pending white list connections if any */
+	if (adapter->wl_conn) {
+		g_io_channel_shutdown(adapter->wl_conn, FALSE, NULL);
+		adapter->wl_conn = NULL;
+	}
+
+	return 0;
 }

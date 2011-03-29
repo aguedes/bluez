@@ -302,3 +302,10 @@ int btd_adapter_add_remote_oob_data(struct btd_adapter *adapter,
 
 int btd_adapter_remove_remote_oob_data(struct btd_adapter *adapter,
 							bdaddr_t *bdaddr);
+
+int adapter_wl_add(struct btd_adapter *adapter, bdaddr_t *bdaddr,
+								uint8_t type);
+int adapter_wl_remove(struct btd_adapter *adapter, bdaddr_t *bdaddr,
+								uint8_t type);
+int adapter_wl_enable(struct btd_adapter *adapter);
+int adapter_wl_disable(struct btd_adapter *adapter);
