@@ -502,6 +502,22 @@ static int l2cap_set_flushable(int sock, gboolean flushable)
 	return 0;
 }
 
+static gboolean get_key_size(int sock, BtIOType type, int *size,
+								GError **err)
+{
+	struct bt_security sec;
+	socklen_t len;
+
+	memset(&sec, 0, sizeof(sec));
+	len = sizeof(sec);
+	if (getsockopt(sock, SOL_BLUETOOTH, BT_SECURITY, &sec, &len) == 0) {
+		*size = sec.key_size;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 static gboolean l2cap_set(int sock, int sec_level, uint16_t imtu,
 				uint16_t omtu, uint8_t mode, int master,
 				int flushable, GError **err)
@@ -845,6 +861,11 @@ static gboolean l2cap_get(int sock, GError **err, BtIOOption opt1,
 			break;
 		case BT_IO_OPT_SEC_LEVEL:
 			if (!get_sec_level(sock, BT_IO_L2CAP,
+						va_arg(args, int *), err))
+				return FALSE;
+			break;
+		case BT_IO_OPT_KEY_SIZE:
+			if (!get_key_size(sock, BT_IO_L2CAP,
 						va_arg(args, int *), err))
 				return FALSE;
 			break;
