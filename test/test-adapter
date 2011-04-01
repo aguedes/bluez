@@ -33,6 +33,7 @@ if (len(args) < 1):
 	print "  powered [on/off]"
 	print "  pairable [on/off]"
 	print "  pairabletimeout [timeout]"
+	print "  whitelistenabled [on/off]"
 	print "  discoverable [on/off]"
 	print "  discoverabletimeout [timeout]"
 	print "  discovering"
@@ -100,6 +101,20 @@ if (args[0] == "discoverable"):
 		else:
 			value = dbus.Boolean(args[1])
 		adapter.SetProperty("Discoverable", value)
+	sys.exit(0)
+
+if (args[0] == "whitelistenabled"):
+	if (len(args) < 2):
+		properties = adapter.GetProperties()
+		print properties["WhitelistEnabled"]
+	else:
+		if (args[1] == "on"):
+			value = dbus.Boolean(1)
+		elif (args[1] == "off"):
+			value = dbus.Boolean(0)
+		else:
+			value = dbus.Boolean(args[1])
+		adapter.SetProperty("WhitelistEnabled", value)
 	sys.exit(0)
 
 if (args[0] == "discoverabletimeout"):
