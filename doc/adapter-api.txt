@@ -230,6 +230,11 @@ Properties	string Address [readonly]
 			Switch an adapter on or off. This will also set the
 			appropiate connectable state.
 
+		boolean WhitelistEnabled [readwrite]
+
+			Enable/Disable automatic LE connection establishment
+			via adapter's white list.
+
 		boolean Discoverable [readwrite]
 
 			Switch an adapter to discoverable or non-discoverable

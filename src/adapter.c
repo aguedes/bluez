@@ -548,6 +548,19 @@ done:
 	return 0;
 }
 
+static DBusMessage *set_wl_enabled(DBusConnection *conn, DBusMessage *msg,
+						gboolean enable, void *data)
+{
+	struct btd_adapter *adapter = data;
+
+	if (enable)
+		adapter_wl_enable(adapter);
+	else
+		adapter_wl_disable(adapter);
+
+	return dbus_message_new_method_return(msg);
+}
+
 static DBusMessage *set_discoverable(DBusConnection *conn, DBusMessage *msg,
 				gboolean discoverable, void *data)
 {
@@ -1439,6 +1452,10 @@ static DBusMessage *get_properties(DBusConnection *conn,
 
 	g_strfreev(uuids);
 
+	value = adapter->wl_connect_id ? TRUE : FALSE;
+	dict_append_entry(&dict, "WhitelistEnabled", DBUS_TYPE_BOOLEAN,
+								&value);
+
 	dbus_message_iter_close_container(&iter, &dict);
 
 	return reply;
@@ -1521,6 +1538,15 @@ static DBusMessage *set_property(DBusConnection *conn,
 		dbus_message_iter_get_basic(&sub, &timeout);
 
 		return set_pairable_timeout(conn, msg, timeout, data);
+	} else if (g_str_equal("WhitelistEnabled", property)) {
+		gboolean wl_enable;
+
+		if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_BOOLEAN)
+			return btd_error_invalid_args(msg);
+
+		dbus_message_iter_get_basic(&sub, &wl_enable);
+
+		return set_wl_enabled(conn, msg, wl_enable, data);
 	}
 
 	return btd_error_invalid_args(msg);
