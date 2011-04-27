@@ -2382,8 +2382,12 @@ void device_bonding_complete(struct btd_device *device, uint8_t status)
 			device->discov_timer = 0;
 		}
 
-		device_browse_sdp(device, bonding->conn, bonding->msg,
-				NULL, FALSE);
+		if (device->type != DEVICE_TYPE_LE)
+			device_browse_sdp(device, bonding->conn, bonding->msg,
+								NULL, FALSE);
+		else
+			device_browse_primary(device, bonding->conn,
+							bonding->msg, FALSE);
 
 		bonding_request_free(bonding);
 	} else {
