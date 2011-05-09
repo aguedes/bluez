@@ -1022,6 +1022,11 @@ struct btd_device *device_create(DBusConnection *conn,
 		device_set_version(device, version);
 	}
 
+	if (type == DEVICE_TYPE_LE && has_longtermkeys(&src, &device->bdaddr)) {
+		device_set_paired(device, TRUE);
+		device_set_bonded(device, TRUE);
+	}
+
 	return btd_device_ref(device);
 }
 
