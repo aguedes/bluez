@@ -466,7 +466,7 @@ int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer, uint8_t *key,
 	return ret;
 }
 
-void btd_event_conn_complete(bdaddr_t *local, bdaddr_t *peer)
+void btd_event_conn_complete(bdaddr_t *local, bdaddr_t *peer, uint8_t link_type)
 {
 	struct btd_adapter *adapter;
 	struct btd_device *device;
@@ -475,6 +475,9 @@ void btd_event_conn_complete(bdaddr_t *local, bdaddr_t *peer)
 		return;
 
 	update_lastused(local, peer);
+
+	if (link_type == LE_LINK)
+		device_set_type(device, DEVICE_TYPE_LE);
 
 	adapter_add_connection(adapter, device);
 }

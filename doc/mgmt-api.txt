@@ -506,6 +506,7 @@ Device Connected Event
 Event Code		0x000B
 Controller Index:	<controller id>
 Event Parameters	Address (6 Octets)
+			Link Type (1 Octet)
 
 Device Disconnected Event
 =========================

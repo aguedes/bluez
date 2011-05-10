@@ -287,6 +287,7 @@ struct mgmt_ev_new_key {
 #define MGMT_EV_DEVICE_CONNECTED	0x000B
 struct mgmt_ev_device_connected {
 	bdaddr_t bdaddr;
+	uint8_t link_type;
 } __packed;
 
 #define MGMT_EV_DEVICE_DISCONNECTED	0x000C
