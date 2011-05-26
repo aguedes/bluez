@@ -215,6 +215,9 @@ void btd_event_bonding_complete(bdaddr_t *local, bdaddr_t *peer,
 
 	create = status ? FALSE : TRUE;
 
+	if (bacmp(local, peer) == 0)
+		return;
+
 	if (!get_adapter_and_device(local, peer, &adapter, &device, create))
 		return;
 
@@ -430,9 +433,17 @@ int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer, uint8_t *key,
 {
 	struct btd_adapter *adapter;
 	struct btd_device *device;
-	int ret;
+	int ret, diff;
 
-	if (!get_adapter_and_device(local, peer, &adapter, &device, TRUE))
+	diff = bacmp(local, peer);
+
+	/*
+	 * If local and peer addresses are equal it means that this key is a
+	 * "slave" key, and it should be stored, but the device must not be
+	 * created.
+	 */
+	if (diff && !get_adapter_and_device(local, peer,
+						&adapter, &device, TRUE))
 		return -ENODEV;
 
 	DBG("storing link key of type 0x%02x", key_type);
@@ -456,7 +467,7 @@ int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer, uint8_t *key,
 		break;
 	}
 
-	if (ret == 0) {
+	if (ret == 0 && diff) {
 		device_set_bonded(device, TRUE);
 
 		if (device_is_temporary(device))
