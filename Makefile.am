@@ -226,6 +226,8 @@ if TIMEPLUGIN
 builtin_modules += time
 builtin_sources += time/main.c \
 		   time/server.h time/server.c
+
+builtin_nodist += time/provider.c
 endif
 
 if ALERTPLUGIN
@@ -341,6 +343,7 @@ EXTRA_DIST += src/genbuiltin src/bluetooth.conf \
 			audio/audio.conf audio/telephony-dummy.c \
 			audio/telephony-maemo5.c audio/telephony-ofono.c \
 			audio/telephony-maemo6.c sap/sap-dummy.c sap/sap-u8500.c \
+			time/provider-dummy.c \
 			proximity/proximity.conf
 
 if ALSA
@@ -474,6 +477,9 @@ src/builtin.h: src/genbuiltin $(builtin_sources)
 	$(AM_V_GEN)$(srcdir)/src/genbuiltin $(builtin_modules) > $@
 
 audio/telephony.c: audio/@TELEPHONY_DRIVER@
+	$(AM_V_GEN)$(LN_S) $(abs_top_srcdir)/$< $@
+
+time/provider.c: time/@TIME_PROVIDER@
 	$(AM_V_GEN)$(LN_S) $(abs_top_srcdir)/$< $@
 
 sap/sap.c: sap/@SAP_DRIVER@

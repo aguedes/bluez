@@ -126,10 +126,12 @@ static uint8_t time_update_control(struct attribute *a, gpointer user_data)
 {
 	DBG("handle 0x%04x", a->handle);
 
-	if (a->len != 1)
+	if (a->len != 1) {
 		DBG("Invalid control point value size: %d", a->len);
+		return 0;
+	}
 
-	return 0;
+	return time_provider_control(a->data[0]);
 }
 
 static uint8_t time_update_status(struct attribute *a, gpointer user_data)
@@ -138,8 +140,8 @@ static uint8_t time_update_status(struct attribute *a, gpointer user_data)
 
 	DBG("handle 0x%04x", a->handle);
 
-	value[0] = UPDATE_STATE_IDLE;
-	value[1] = UPDATE_RESULT_SUCCESSFUL;
+	time_provider_status(&value[0], &value[1]);
+
 	attrib_db_update(a->handle, NULL, value, sizeof(value), NULL);
 
 	return 0;
@@ -168,11 +170,16 @@ static void register_reference_time_update_service(void)
 int time_server_init(void)
 {
 	register_current_time_service();
-	register_reference_time_update_service();
+
+	if (time_provider_init() < 0)
+		DBG("error initializing time provider");
+	else
+		register_reference_time_update_service();
 
 	return 0;
 }
 
 void time_server_exit(void)
 {
+	time_provider_exit();
 }

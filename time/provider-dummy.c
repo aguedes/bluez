@@ -22,32 +22,33 @@
  *
  */
 
-enum {
-	UPDATE_RESULT_SUCCESSFUL = 0,
-	UPDATE_RESULT_CANCELED = 1,
-	UPDATE_RESULT_NO_CONN = 2,
-	UPDATE_RESULT_ERROR = 3,
-	UPDATE_RESULT_TIMEOUT = 4,
-	UPDATE_RESULT_NOT_ATTEMPTED = 5,
-};
+#include <stdint.h>
 
-enum {
-	UPDATE_STATE_IDLE = 0,
-	UPDATE_STATE_PENDING = 1,
-};
+#include "server.h"
+#include "log.h"
 
-enum {
-	GET_REFERENCE_UPDATE = 1,
-	CANCEL_REFERENCE_UPDATE = 2,
-};
+int time_provider_init(void)
+{
+	DBG("initializing dummy time provider");
 
-int time_server_init(void);
-void time_server_exit(void);
+	return 0;
+}
 
-/* Time provider init and exit routines. Implemented by provider-*.c */
-int time_provider_init(void);
-void time_provider_exit(void);
 
-/* Time provider control and status routines. Implemented by provider-*.c */
-void time_provider_status(uint8_t *state, uint8_t *result);
-uint8_t time_provider_control(int op);
+void time_provider_exit(void)
+{
+	DBG("exiting dummy time provider");
+}
+
+void time_provider_status(uint8_t *state, uint8_t *result)
+{
+	*state = UPDATE_STATE_IDLE;
+	*result = UPDATE_RESULT_NOT_ATTEMPTED;
+}
+
+uint8_t time_provider_control(int op)
+{
+	DBG("dummy time provider: updating time");
+
+	return 0;
+}

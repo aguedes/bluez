@@ -213,6 +213,7 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	dfutool_enable=no
 	datafiles_enable=yes
 	telephony_driver=dummy
+	time_provider=dummy
 	maemo6_enable=no
 	sap_driver=dummy
 	dbusoob_enable=no
@@ -251,6 +252,12 @@ AC_DEFUN([AC_ARG_BLUEZ], [
 	AC_ARG_ENABLE(time, AC_HELP_STRING([--enable-time], [enable Time Profile plugin]), [
 		time_enable=${enableval}
 	])
+
+	AC_ARG_WITH(time, AC_HELP_STRING([--with-time=PROVIDER], [select time provider]), [
+		time_provider=${withval}
+	])
+
+	AC_SUBST([TIME_PROVIDER], [provider-${time_provider}.c])
 
 	AC_ARG_ENABLE(alert, AC_HELP_STRING([--enable-alert], [enable Phone Alert Profile plugin]), [
 		alert_enable=${enableval}
