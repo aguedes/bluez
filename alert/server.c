@@ -39,8 +39,16 @@
 #define PHONE_ALERT_STATUS_SVC_UUID		0x180E
 
 #define RINGER_CP_CHR_UUID		0x2A40
+#define RINGER_SETTING_CHR_UUID		0x2A41
 
 static uint8_t control_point_write(struct attribute *a, gpointer user_data)
+{
+	DBG("a = %p", a);
+
+	return 0;
+}
+
+static uint8_t ringer_setting_read(struct attribute *a, gpointer user_data)
 {
 	DBG("a = %p", a);
 
@@ -56,6 +64,12 @@ static void register_phone_alert_service(void)
 			GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_WRITE,
 			GATT_OPT_CHR_VALUE_CB, ATTRIB_WRITE,
 			control_point_write,
+			/* Ringer Setting characteristic */
+			GATT_OPT_CHR_UUID, RINGER_SETTING_CHR_UUID,
+			GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_READ |
+							ATT_CHAR_PROPER_NOTIFY,
+			GATT_OPT_CHR_VALUE_CB, ATTRIB_READ,
+			ringer_setting_read,
 			GATT_OPT_INVALID);
 }
 
