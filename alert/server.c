@@ -38,10 +38,24 @@
 
 #define PHONE_ALERT_STATUS_SVC_UUID		0x180E
 
+#define RINGER_CP_CHR_UUID		0x2A40
+
+static uint8_t control_point_write(struct attribute *a, gpointer user_data)
+{
+	DBG("a = %p", a);
+
+	return 0;
+}
+
 static void register_phone_alert_service(void)
 {
 	/* Phone Alert Status Service */
 	gatt_service_add(GATT_PRIM_SVC_UUID, PHONE_ALERT_STATUS_SVC_UUID,
+			/* Ringer Control Point characteristic */
+			GATT_OPT_CHR_UUID, RINGER_CP_CHR_UUID,
+			GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_WRITE,
+			GATT_OPT_CHR_VALUE_CB, ATTRIB_WRITE,
+			control_point_write,
 			GATT_OPT_INVALID);
 }
 
