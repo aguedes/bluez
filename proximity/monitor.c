@@ -208,11 +208,20 @@ static int write_alert_level(struct monitor *monitor)
 	return 0;
 }
 
+static void monitor_rssi_alert(uint8_t alert, gpointer user_data)
+{
+	DBG("");
+}
+
 static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 							gpointer user_data)
 {
+	struct monitor *monitor = user_data;
+	struct btd_device *device = monitor->device;
 	uint8_t value[ATT_MAX_MTU];
 	int vlen;
+	int8_t low = -20, high = -40;
+	bdaddr_t dba;
 
 	if (status != 0) {
 		DBG("Tx Power Level read failed: %s", att_ecode2str(status));
@@ -230,6 +239,11 @@ static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	}
 
 	DBG("Tx Power Level: %02x", (int8_t) value[0]);
+
+	device_get_address(device, &dba);
+	btd_adapter_enable_rssi_monitor(device_get_adapter(device), &dba,
+					low, high, monitor_rssi_alert,
+					monitor);
 }
 
 static void tx_power_handle_cb(GSList *characteristics, guint8 status,
