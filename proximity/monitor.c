@@ -80,6 +80,7 @@ struct monitor {
 	uint16_t immediatehandle;	/* Immediate Alert Value Handle */
 	guint immediateto;		/* Reset Immediate Alert to "none" */
 	guint attioid;
+	gboolean rssimon;		/* RSSI monitor enabled/disabled */
 };
 
 static inline int create_filename(char *buf, size_t size,
@@ -218,6 +219,7 @@ static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 {
 	struct monitor *monitor = user_data;
 	struct btd_device *device = monitor->device;
+	struct btd_adapter *adapter = device_get_adapter(device);
 	uint8_t value[ATT_MAX_MTU];
 	int vlen;
 	int8_t low = -20, high = -40;
@@ -241,9 +243,9 @@ static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	DBG("Tx Power Level: %02x", (int8_t) value[0]);
 
 	device_get_address(device, &dba);
-	btd_adapter_enable_rssi_monitor(device_get_adapter(device), &dba,
-					low, high, monitor_rssi_alert,
-					monitor);
+	monitor->rssimon = btd_adapter_enable_rssi_monitor(adapter, &dba,
+						low, high, monitor_rssi_alert,
+						monitor);
 }
 
 static void tx_power_handle_cb(GSList *characteristics, guint8 status,
@@ -575,12 +577,21 @@ static GDBusSignalTable monitor_signals[] = {
 static void monitor_destroy(gpointer user_data)
 {
 	struct monitor *monitor = user_data;
+	struct btd_device *device = monitor->device;
 
 	if (monitor->immediateto)
 		g_source_remove(monitor->immediateto);
 
+	if (monitor->rssimon) {
+		struct btd_adapter *adapter = device_get_adapter(device);
+		bdaddr_t dba;
+
+		device_get_address(device, &dba);
+		btd_adapter_disable_rssi_monitor(adapter, &dba);
+	}
+
 	if (monitor->attioid)
-		btd_device_remove_attio_callback(monitor->device,
+		btd_device_remove_attio_callback(device,
 						monitor->attioid);
 	if (monitor->attrib)
 		g_attrib_unref(monitor->attrib);
