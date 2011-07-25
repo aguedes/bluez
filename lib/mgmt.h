@@ -220,6 +220,18 @@ struct mgmt_cp_set_fast_connectable {
 	uint8_t enable;
 } __packed;
 
+#define MGMT_OP_ENABLE_RSSI_MONITOR	0x0020
+struct mgmt_cp_enable_rssi_monitor {
+	bdaddr_t bdaddr;
+	int8_t low;
+	int8_t high;
+} __packed;
+
+#define MGMT_OP_DISABLE_RSSI_MONITOR	0x0021
+struct mgmt_cp_disable_rssi_monitor {
+	bdaddr_t bdaddr;
+} __packed;
+
 struct smp_ltk_info {
 	uint8_t enc_size;
 	uint16_t ediv;
@@ -349,6 +361,12 @@ struct mgmt_ev_device_blocked {
 #define MGMT_EV_DEVICE_UNBLOCKED	0x0016
 struct mgmt_ev_device_unblocked {
 	bdaddr_t bdaddr;
+} __packed;
+
+#define MGMT_EV_RSSI_MONITOR_ALERT	0x0017
+struct mgmt_ev_rssi_monitor_alert {
+	bdaddr_t bdaddr;
+	uint8_t alert_type;
 } __packed;
 
 #define MGMT_EV_NEW_SMP_KEY		0x0018
