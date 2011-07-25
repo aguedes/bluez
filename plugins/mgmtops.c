@@ -1866,6 +1866,65 @@ static int mgmt_unblock_device(int index, bdaddr_t *bdaddr)
 	return 0;
 }
 
+static int mgmt_enable_rssi_monitor(int index, bdaddr_t *bdaddr,
+						int8_t low, int8_t high)
+{
+	char buf[MGMT_HDR_SIZE + sizeof(struct mgmt_cp_enable_rssi_monitor)];
+	struct mgmt_hdr *hdr = (void *) buf;
+	struct mgmt_cp_enable_rssi_monitor *cp;
+	size_t buf_len;
+	char addr[18];
+
+	ba2str(bdaddr, addr);
+	DBG("index %d addr %s", index, addr);
+
+	memset(buf, 0, sizeof(buf));
+
+	hdr->opcode = htobs(MGMT_OP_ENABLE_RSSI_MONITOR);
+	hdr->len = htobs(sizeof(*cp));
+	hdr->index = htobs(index);
+
+	cp = (void *) &buf[sizeof(*hdr)];
+	bacpy(&cp->bdaddr, bdaddr);
+	cp->low = low;
+	cp->high = high;
+
+	buf_len = sizeof(*hdr) + sizeof(*cp);
+
+	if (write(mgmt_sock, buf, buf_len) < 0)
+		return -errno;
+
+	return 0;
+}
+
+static int mgmt_disable_rssi_monitor(int index, bdaddr_t *bdaddr)
+{
+	char buf[MGMT_HDR_SIZE + sizeof(struct mgmt_cp_disable_rssi_monitor)];
+	struct mgmt_hdr *hdr = (void *) buf;
+	struct mgmt_cp_disable_rssi_monitor *cp;
+	size_t buf_len;
+	char addr[18];
+
+	ba2str(bdaddr, addr);
+	DBG("index %d addr %s", index, addr);
+
+	memset(buf, 0, sizeof(buf));
+
+	hdr->opcode = htobs(MGMT_OP_DISABLE_RSSI_MONITOR);
+	hdr->len = htobs(sizeof(*cp));
+	hdr->index = htobs(index);
+
+	cp = (void *) &buf[sizeof(*hdr)];
+	bacpy(&cp->bdaddr, bdaddr);
+
+	buf_len = sizeof(*hdr) + sizeof(*cp);
+
+	if (write(mgmt_sock, buf, buf_len) < 0)
+		return -errno;
+
+	return 0;
+}
+
 static int mgmt_get_conn_list(int index, GSList **conns)
 {
 	struct controller_info *info = &controllers[index];
@@ -2207,6 +2266,8 @@ static struct btd_adapter_ops mgmt_ops = {
 	.read_bdaddr = mgmt_read_bdaddr,
 	.block_device = mgmt_block_device,
 	.unblock_device = mgmt_unblock_device,
+	.enable_rssi_monitor = mgmt_enable_rssi_monitor,
+	.disable_rssi_monitor = mgmt_disable_rssi_monitor,
 	.get_conn_list = mgmt_get_conn_list,
 	.disconnect = mgmt_disconnect,
 	.remove_bonding = mgmt_remove_bonding,

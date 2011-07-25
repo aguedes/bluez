@@ -3194,6 +3194,17 @@ static int hciops_unblock_device(int index, bdaddr_t *bdaddr)
 	return 0;
 }
 
+static int hciops_enable_rssi_monitor(int index, bdaddr_t *bdaddr,
+						int8_t low, int8_t high)
+{
+	return -ENOSYS;
+}
+
+static int hciops_disable_rssi_monitor(int index, bdaddr_t *bdaddr)
+{
+	return -ENOSYS;
+}
+
 static int hciops_get_conn_list(int index, GSList **conns)
 {
 	struct dev_info *dev = &devs[index];
@@ -3648,6 +3659,8 @@ static struct btd_adapter_ops hci_ops = {
 	.read_bdaddr = hciops_read_bdaddr,
 	.block_device = hciops_block_device,
 	.unblock_device = hciops_unblock_device,
+	.enable_rssi_monitor = hciops_enable_rssi_monitor,
+	.disable_rssi_monitor = hciops_disable_rssi_monitor,
 	.get_conn_list = hciops_get_conn_list,
 	.disconnect = hciops_disconnect,
 	.remove_bonding = hciops_remove_bonding,

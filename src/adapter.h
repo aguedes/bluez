@@ -205,6 +205,9 @@ struct btd_adapter_ops {
 	int (*read_bdaddr) (int index, bdaddr_t *bdaddr);
 	int (*block_device) (int index, bdaddr_t *bdaddr);
 	int (*unblock_device) (int index, bdaddr_t *bdaddr);
+	int (*enable_rssi_monitor) (int index, bdaddr_t *bdaddr, int8_t low,
+								int8_t high);
+	int (*disable_rssi_monitor) (int index, bdaddr_t *bdaddr);
 	int (*get_conn_list) (int index, GSList **conns);
 	int (*disconnect) (int index, bdaddr_t *bdaddr);
 	int (*remove_bonding) (int index, bdaddr_t *bdaddr);
