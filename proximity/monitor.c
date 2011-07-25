@@ -211,7 +211,31 @@ static int write_alert_level(struct monitor *monitor)
 
 static void monitor_rssi_alert(uint8_t alert, gpointer user_data)
 {
-	DBG("");
+	struct monitor *monitor = user_data;
+	const char *level, *path = device_get_path(monitor->device);
+
+	switch (alert) {
+	case 0x00:
+		level = "good";
+		break;
+	case 0x01:
+		level = "regular";
+		break;
+	case 0x02:
+		level = "weak";
+		break;
+	default:
+		level = "unknown";
+		break;
+	}
+
+	emit_property_changed(monitor->conn, path, PROXIMITY_INTERFACE,
+					"SignalLevel", DBUS_TYPE_STRING,
+					&level);
+	g_free(monitor->signallevel);
+	monitor->signallevel = g_strdup(level);
+
+	DBG("SignalLevel: %s", level);
 }
 
 static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
