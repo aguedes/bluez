@@ -124,6 +124,8 @@ void adapter_update_found_devices(struct btd_adapter *adapter, bdaddr_t *bdaddr,
 int adapter_remove_found_device(struct btd_adapter *adapter, bdaddr_t *bdaddr);
 void adapter_emit_device_found(struct btd_adapter *adapter,
 						struct remote_dev_info *dev);
+void adapter_rssi_monitor_alert_triggered(struct btd_adapter *adapter,
+					bdaddr_t *bdaddr, uint8_t alert);
 void adapter_mode_changed(struct btd_adapter *adapter, uint8_t scan_mode);
 int adapter_set_name(struct btd_adapter *adapter, const char *name);
 void adapter_name_changed(struct btd_adapter *adapter, const char *name);

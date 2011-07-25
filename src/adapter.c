@@ -3748,6 +3748,22 @@ int btd_adapter_remove_remote_oob_data(struct btd_adapter *adapter,
 	return adapter_ops->remove_remote_oob_data(adapter->dev_id, bdaddr);
 }
 
+void adapter_rssi_monitor_alert_triggered(struct btd_adapter *adapter,
+					bdaddr_t *bdaddr, uint8_t alert)
+{
+	GSList *l;
+
+	for (l = adapter->rssi_monitors; l; l = l->next) {
+		struct rssi_monitor_data *monitor = l->data;
+
+		if (bacmp(&monitor->bdaddr, bdaddr) != 0)
+			continue;
+
+		monitor->cb(alert, monitor->user_data);
+		break;
+	}
+}
+
 static int rssi_monitor_bacmp(gconstpointer data, gconstpointer user_data)
 {
 	const struct rssi_monitor_data *monitor = data;

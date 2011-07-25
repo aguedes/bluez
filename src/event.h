@@ -43,3 +43,5 @@ void btd_event_device_unblocked(bdaddr_t *local, bdaddr_t *peer);
 int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer, uint8_t *key,
 					uint8_t key_type, uint8_t pin_length,
 					uint8_t *data, int dlen);
+void btd_event_rssi_monitor_alert(bdaddr_t *local, bdaddr_t *peer,
+							uint8_t alert);

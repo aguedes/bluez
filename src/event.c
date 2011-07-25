@@ -556,6 +556,20 @@ void btd_event_device_unblocked(bdaddr_t *local, bdaddr_t *peer)
 	device_unblock(conn, device, FALSE, TRUE);
 }
 
+void btd_event_rssi_monitor_alert(bdaddr_t *local, bdaddr_t *peer,
+							uint8_t alert)
+{
+	struct btd_adapter *adapter;
+
+	adapter = manager_find_adapter(local);
+	if (!adapter) {
+		error("No matching adapter found");
+		return;
+	}
+
+	adapter_rssi_monitor_alert_triggered(adapter, peer, alert);
+}
+
 /* Section reserved to device HCI callbacks */
 
 void btd_event_returned_link_key(bdaddr_t *local, bdaddr_t *peer)
