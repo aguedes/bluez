@@ -288,3 +288,9 @@ int btd_adapter_add_remote_oob_data(struct btd_adapter *adapter,
 
 int btd_adapter_remove_remote_oob_data(struct btd_adapter *adapter,
 							bdaddr_t *bdaddr);
+
+typedef void (*rssi_monitor) (uint8_t alert, gpointer user_data);
+gboolean btd_adapter_enable_rssi_monitor(struct btd_adapter *adapter,
+					bdaddr_t *bdaddr, int8_t low,
+					int high, rssi_monitor cb,
+					gpointer user_data);

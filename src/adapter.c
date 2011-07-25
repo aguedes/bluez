@@ -105,6 +105,11 @@ struct service_auth {
 	struct btd_adapter *adapter;
 };
 
+struct rssi_monitor_data {
+	rssi_monitor cb;
+	gpointer user_data;
+};
+
 struct btd_adapter {
 	uint16_t dev_id;
 	gboolean up;
@@ -149,6 +154,8 @@ struct btd_adapter {
 
 	GSList *powered_callbacks;
 	GSList *pin_callbacks;
+
+	GSList *rssi_monitors;		/* RSSI Threshold monitors */
 
 	GSList *loaded_drivers;
 };
@@ -2542,6 +2549,7 @@ static void adapter_free(gpointer user_data)
 	sdp_list_free(adapter->services, NULL);
 
 	g_slist_free_full(adapter->found_devices, dev_info_free);
+	g_slist_free_full(adapter->rssi_monitors, g_free);
 
 	g_slist_free(adapter->oor_devices);
 
@@ -3737,4 +3745,23 @@ int btd_adapter_remove_remote_oob_data(struct btd_adapter *adapter,
 							bdaddr_t *bdaddr)
 {
 	return adapter_ops->remove_remote_oob_data(adapter->dev_id, bdaddr);
+}
+
+gboolean btd_adapter_enable_rssi_monitor(struct btd_adapter *adapter,
+					bdaddr_t *bdaddr, int8_t low,
+					int high, rssi_monitor cb,
+					gpointer user_data)
+{
+	struct rssi_monitor_data *monitor;
+
+	monitor = g_try_new(struct rssi_monitor_data, 1);
+	if (monitor == NULL)
+		return FALSE;
+
+	monitor->cb = cb;
+	monitor->user_data = user_data;
+
+	adapter->rssi_monitors = g_slist_append(adapter->rssi_monitors, monitor);
+
+	return TRUE;
 }
