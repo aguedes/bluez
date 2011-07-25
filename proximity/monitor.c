@@ -56,6 +56,9 @@
 
 #define IMMEDIATE_TIMEOUT	5
 
+#define LOW_RSSI_THRESHOLD	-60
+#define HIGH_RSSI_THRESHOLD	-75
+
 enum {
 	ALERT_NONE = 0,
 	ALERT_MILD,
@@ -246,7 +249,7 @@ static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 	struct btd_adapter *adapter = device_get_adapter(device);
 	uint8_t value[ATT_MAX_MTU];
 	int vlen;
-	int8_t low = -20, high = -40;
+	int8_t low, high, txpower;
 	bdaddr_t dba;
 
 	if (status != 0) {
@@ -264,8 +267,11 @@ static void tx_power_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 		return;
 	}
 
-	DBG("Tx Power Level: %02x", (int8_t) value[0]);
+	txpower = (int8_t) value[0];
+	DBG("Tx Power Level: %d", txpower);
 
+	low = LOW_RSSI_THRESHOLD - txpower;
+	high = HIGH_RSSI_THRESHOLD - txpower;
 	device_get_address(device, &dba);
 	monitor->rssimon = btd_adapter_enable_rssi_monitor(adapter, &dba,
 						low, high, monitor_rssi_alert,
