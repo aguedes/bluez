@@ -3779,3 +3779,23 @@ gboolean btd_adapter_enable_rssi_monitor(struct btd_adapter *adapter,
 
 	return TRUE;
 }
+
+gboolean btd_adapter_disable_rssi_monitor(struct btd_adapter *adapter,
+							bdaddr_t *bdaddr)
+{
+	struct rssi_monitor_data *monitor;
+	GSList *l;
+
+	l = g_slist_find_custom(adapter->rssi_monitors, bdaddr,
+						rssi_monitor_bacmp);
+	if (!l)
+		return FALSE;
+
+	monitor = l->data;
+
+	adapter->rssi_monitors = g_slist_remove(adapter->rssi_monitors,
+								monitor);
+	g_free(monitor);
+
+	return TRUE;
+}

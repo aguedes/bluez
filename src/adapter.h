@@ -294,3 +294,5 @@ gboolean btd_adapter_enable_rssi_monitor(struct btd_adapter *adapter,
 					bdaddr_t *bdaddr, int8_t low,
 					int high, rssi_monitor cb,
 					gpointer user_data);
+gboolean btd_adapter_disable_rssi_monitor(struct btd_adapter *adapter,
+							bdaddr_t *bdaddr);
