@@ -44,8 +44,15 @@
 #define RINGER_CP_CHR_UUID		0x2A40
 #define RINGER_SETTING_CHR_UUID		0x2A41
 
+#define AGENT_INTERFACE "org.bluez.PhoneAgent"
 #define ALERT_INTERFACE "org.bluez.PhoneAlert"
 #define ALERT_PATH "/test/phonealert"
+
+enum {
+	SET_SILENT_MODE = 1,
+	MUTE_ONCE,
+	CANCEL_SILENT_MODE,
+};
 
 struct agent {
 	char *name;
@@ -56,9 +63,46 @@ struct agent {
 static DBusConnection *connection = NULL;
 static struct agent agent;
 
+static void agent_operation(const char *operation)
+{
+	DBusMessage *message;
+
+	if (!agent.name) {
+		error("Agent not registered");
+		return;
+	}
+
+	DBG("%s: agent %s, %s", operation, agent.name, agent.path);
+
+	message = dbus_message_new_method_call(agent.name, agent.path,
+						AGENT_INTERFACE, operation);
+
+	if (message == NULL) {
+		error("Couldn't allocate D-Bus message");
+		return;
+	}
+
+	if (!g_dbus_send_message(connection, message))
+		error("D-Bus error: agent_operation %s", operation);
+}
+
 static uint8_t control_point_write(struct attribute *a, gpointer user_data)
 {
 	DBG("a = %p", a);
+
+	switch (a->data[0]) {
+	case SET_SILENT_MODE:
+		agent_operation("SetSilentMode");
+		break;
+	case MUTE_ONCE:
+		agent_operation("MuteOnce");
+		break;
+	case CANCEL_SILENT_MODE:
+		agent_operation("CancelSilentMode");
+		break;
+	default:
+		DBG("Unknown mode");
+	}
 
 	return 0;
 }
