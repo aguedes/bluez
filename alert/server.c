@@ -41,6 +41,7 @@
 
 #define PHONE_ALERT_STATUS_SVC_UUID		0x180E
 
+#define ALERT_STATUS_CHR_UUID		0x2A3F
 #define RINGER_CP_CHR_UUID		0x2A40
 #define RINGER_SETTING_CHR_UUID		0x2A41
 
@@ -178,6 +179,13 @@ static void get_silent_mode(DBusConnection *conn, void *user_data)
 	dbus_pending_call_set_notify(call, get_silent_reply, NULL, NULL);
 }
 
+static uint8_t alert_status_read(struct attribute *a, gpointer user_data)
+{
+	DBG("a = %p", a);
+
+	return 0;
+}
+
 static uint8_t ringer_setting_read(struct attribute *a, gpointer user_data)
 {
 	if (ringer_setting == 0xff) {
@@ -199,6 +207,12 @@ static void register_phone_alert_service(void)
 {
 	/* Phone Alert Status Service */
 	gatt_service_add(GATT_PRIM_SVC_UUID, PHONE_ALERT_STATUS_SVC_UUID,
+			/* Alert Status characteristic */
+			GATT_OPT_CHR_UUID, ALERT_STATUS_CHR_UUID,
+			GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_READ |
+							ATT_CHAR_PROPER_NOTIFY,
+			GATT_OPT_CHR_VALUE_CB, ATTRIB_READ,
+			alert_status_read,
 			/* Ringer Control Point characteristic */
 			GATT_OPT_CHR_UUID, RINGER_CP_CHR_UUID,
 			GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_WRITE,
