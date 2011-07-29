@@ -426,6 +426,13 @@ static void attio_disconnected_cb(gpointer user_data)
 	g_attrib_unref(monitor->attrib);
 	monitor->attrib = NULL;
 
+	g_free(monitor->signallevel);
+	monitor->signallevel = g_strdup("unknown");
+
+	emit_property_changed(monitor->conn, path, PROXIMITY_INTERFACE,
+					"SignalLevel", DBUS_TYPE_STRING,
+					&monitor->signallevel);
+
 	device_get_address(device, &dba);
 	btd_adapter_disable_rssi_monitor(adapter, &dba);
 	monitor->rssimon = FALSE;
