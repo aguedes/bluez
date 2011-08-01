@@ -388,10 +388,17 @@ static void attio_connected_cb(GAttrib *attrib, gpointer user_data)
 static void attio_disconnected_cb(gpointer user_data)
 {
 	struct monitor *monitor = user_data;
-	const char *path = device_get_path(monitor->device);
+	struct btd_device *device = monitor->device;
+	struct btd_adapter *adapter = device_get_adapter(device);
+	const char *path = device_get_path(device);
+	bdaddr_t dba;
 
 	g_attrib_unref(monitor->attrib);
 	monitor->attrib = NULL;
+
+	device_get_address(device, &dba);
+	btd_adapter_disable_rssi_monitor(adapter, &dba);
+	monitor->rssimon = FALSE;
 
 	if (monitor->immediateto == 0)
 		return;
