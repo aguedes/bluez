@@ -28,10 +28,15 @@ def get_ringer():
 def set_alert_status():
     global ringer_setting, alert_status, on_call
 
+    old_alert_status = alert_status
     if on_call and ringer_setting != "Silent":
         alert_status |= ALERT_RINGER_STATE
     else:
         alert_status &= ~ALERT_RINGER_STATE
+
+    if old_alert_status != alert_status:
+        print "NotifyAlertStatus(%02x)" % alert_status
+        phone.NotifyAlertStatus(dbus.Byte(alert_status))
 
 def silence_ringer():
     print "silence_ringer()"

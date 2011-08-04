@@ -76,6 +76,7 @@ static DBusConnection *connection = NULL;
 static uint8_t ringer_setting = 0xff;
 static uint8_t alert_status = 0xff;
 static uint16_t handle_ringer_setting = 0x0000;
+static uint16_t handle_alert_status = 0x0000;
 static struct agent agent;
 
 static void agent_operation(const char *operation)
@@ -292,6 +293,7 @@ static void register_phone_alert_service(void)
 							ATT_CHAR_PROPER_NOTIFY,
 			GATT_OPT_CHR_VALUE_CB, ATTRIB_READ,
 			alert_status_read,
+			GATT_OPT_CHR_VALUE_GET_HANDLE, &handle_alert_status,
 			/* Ringer Control Point characteristic */
 			GATT_OPT_CHR_UUID, RINGER_CP_CHR_UUID,
 			GATT_OPT_CHR_PROPS, ATT_CHAR_PROPER_WRITE,
@@ -367,9 +369,30 @@ static DBusMessage *notify_ringer_setting(DBusConnection *conn,
 	return dbus_message_new_method_return(msg);
 }
 
+static DBusMessage *notify_alert_status(DBusConnection *conn,
+						DBusMessage *msg, void *data)
+{
+	uint8_t status;
+
+	if (agent.name == NULL)
+		return NULL;
+
+	if (!dbus_message_get_args(msg, NULL, DBUS_TYPE_BYTE, &status,
+							DBUS_TYPE_INVALID))
+		return NULL;
+
+	alert_status = status;
+
+	attrib_db_update(handle_alert_status, NULL, &alert_status,
+						sizeof(alert_status), NULL);
+
+	return dbus_message_new_method_return(msg);
+}
+
 static GDBusMethodTable alert_methods[] = {
 	{ "RegisterAgent",	"o",	"",	register_agent		},
 	{ "NotifyRingerSetting","s",	"",	notify_ringer_setting	},
+	{ "NotifyAlertStatus","y",	"",	notify_alert_status	},
 	{ }
 };
 
