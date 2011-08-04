@@ -6,6 +6,7 @@ import dbus.mainloop.glib
 import gobject
 
 StateIncoming = 0
+StateActive = 3
 StateEnded = 6
 
 ALERT_RINGER_STATE = 1 << 0
@@ -55,8 +56,10 @@ def call_state_changed(*args, **kwargs):
             continue
         if item["state"] == StateIncoming:
             on_call = True
-        elif item["state"] == StateEnded:
+            set_alert_status()
+        elif item["state"] in [StateActive, StateEnded]:
             on_call = False
+            set_alert_status()
             if not silent_mode:
                 restore_ringer()
 
