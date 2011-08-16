@@ -996,7 +996,7 @@ static void link_key_notify(int index, void *ptr)
 
 		err = btd_event_link_key_notify(&dev->bdaddr, dba,
 						evt->link_key, key_type,
-						dev->pin_length);
+						dev->pin_length, NULL, 0);
 
 		if (err == -ENODEV)
 			status = HCI_OE_LOW_RESOURCES;

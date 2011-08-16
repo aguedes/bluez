@@ -385,9 +385,48 @@ proceed:
 	adapter_set_state(adapter, STATE_IDLE);
 }
 
-int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer,
-				uint8_t *key, uint8_t key_type,
-				uint8_t pin_length)
+static gchar *buf2str(uint8_t *data, int datalen)
+{
+	char *buf;
+	int i;
+
+	buf = g_try_new0(gchar, (datalen * 2) + 1);
+	if (buf == NULL)
+		return NULL;
+
+	for (i = 0; i < datalen; i++)
+		sprintf(buf + (i * 2), "%2.2x", data[i]);
+
+	return buf;
+}
+
+static int store_longtermkey(bdaddr_t *local, bdaddr_t *peer, unsigned char *key,
+			uint8_t type, int length, int dlen, uint8_t *data)
+{
+	GString *newkey;
+	char *val, *str;
+	int err;
+
+	val = buf2str(key, 16);
+	newkey = g_string_new(val);
+	g_free(val);
+
+	g_string_append_printf(newkey, " %d %d %d ", type, length, dlen);
+
+	str = buf2str(data, dlen);
+	newkey = g_string_append(newkey, str);
+	g_free(str);
+
+	err = write_longtermkeys(local, peer, newkey->str);
+
+	g_string_free(newkey, TRUE);
+
+	return err;
+}
+
+int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer, uint8_t *key,
+					uint8_t key_type, uint8_t pin_length,
+					uint8_t *data, int dlen)
 {
 	struct btd_adapter *adapter;
 	struct btd_device *device;
@@ -398,7 +437,24 @@ int btd_event_link_key_notify(bdaddr_t *local, bdaddr_t *peer,
 
 	DBG("storing link key of type 0x%02x", key_type);
 
-	ret = write_link_key(local, peer, key, key_type, pin_length);
+	switch (key_type) {
+	case HCI_LK_COMBINATION:
+	case HCI_LK_LOCAL_UNIT:
+	case HCI_LK_REMOTE_UNIT:
+	case HCI_LK_DEBUG_COMBINATION:
+	case HCI_LK_UNAUTH_COMBINATION:
+	case HCI_LK_AUTH_COMBINATION:
+	case HCI_LK_CHANGED_COMBINATION:
+		ret = write_link_key(local, peer, key, key_type, pin_length);
+		break;
+	case HCI_LK_SMP_LTK:
+		ret = store_longtermkey(local, peer, key, key_type, pin_length,
+								dlen, data);
+		break;
+	default:
+		ret = -ENOTSUP;
+		break;
+	}
 
 	if (ret == 0) {
 		device_set_bonded(device, TRUE);
