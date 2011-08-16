@@ -86,28 +86,6 @@ def profile_changed(*args, **kwargs):
 class PhoneAgent(dbus.service.Object):
     @dbus.service.method("org.bluez.PhoneAgent",
             in_signature="", out_signature="")
-    def MuteOnce(self):
-        print "MuteOnce()"
-
-        global silent_mode
-        if silent_mode:
-            print "In Silent mode"
-            return
-
-        global on_call
-        if not on_call:
-            print "No active call"
-            return
-
-        global ringer_setting
-        if ringer_setting == "Silent":
-            print "Ringer already silent"
-            return
-
-        silence_ringer()
-
-    @dbus.service.method("org.bluez.PhoneAgent",
-            in_signature="", out_signature="")
     def SetSilentMode(self):
         print "SetSilentMode()"
 
