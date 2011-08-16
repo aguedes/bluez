@@ -395,6 +395,28 @@ Write Controller Tracing Filter Command
 				Protocol_Identifier[i] (16 Octets)
 	Return Parameters:	Status (1 Octet)
 
+Load SMP Keys Command
+=====================
+
+	Command Code:		0x0022
+	Controller Index:	<controller id>
+	Command Parameters:	Debug Keys (1 Octet)
+				Key Count (2 Octets)
+				Key1 {
+					Address (6 Octets)
+					Type (1 Octet)
+					PIN_Length (1 Octet)
+					Value (16 Octets)
+					[
+						Encryption Size (1 Octet)
+						Enc. Diversifier (2 Octets)
+						Random Number (8 Octets)
+					] || [
+						Address Type (1 Octet)
+					]
+				}
+				Key2 {  }
+				...
 
 Command Complete Event
 ======================
@@ -574,3 +596,22 @@ Device Unblocked Event
 Event Code		0x00016
 Controller Index	<controller id>
 Event Parameters	Address (6 Octets)
+
+New SMP Key Event
+=================
+
+Event Code		0x0017
+Controller Index	<controller id>
+Event Parameters	Store Hint (1 Octet)
+			Key {
+				Address (6 Octets)
+				Type (1 Octet)
+				PIN_Length (1 Octet)
+				Value (16 Octets)
+				[	Encryption Size (1 Octet)
+					Enc. Diversifier (2 Octets)
+					Random Number (8 Octets)
+				] || [
+					Address Type (1 Octet)
+				]
+			}
