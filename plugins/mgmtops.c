@@ -1437,6 +1437,45 @@ static void mgmt_device_unblocked(int sk, uint16_t index, void *buf, size_t len)
 	btd_event_device_unblocked(&info->bdaddr, &ev->bdaddr);
 }
 
+static void mgmt_new_smp_key(int sk, uint16_t index, void *buf, size_t len)
+{
+	struct mgmt_ev_new_smp_key *ev = buf;
+	struct controller_info *info;
+
+	if (len != sizeof(*ev)) {
+		error("new_smp_key event size mismatch (%zu != %zu)",
+							len, sizeof(*ev));
+		return;
+	}
+
+	DBG("Controller %u new key of type %u pin_len %u", index,
+					ev->key.type, ev->key.pin_len);
+
+	if (index > max_index) {
+		error("Unexpected index %u in new_key event", index);
+		return;
+	}
+
+	if (ev->key.pin_len > 16) {
+		error("Invalid PIN length (%u) in new_key event",
+							ev->key.pin_len);
+		return;
+	}
+
+	info = &controllers[index];
+
+	if (ev->store_hint) {
+		struct smp_ltk_info *ltk = &ev->key.ltk;
+
+		btd_event_link_key_notify(&info->bdaddr, &ev->key.bdaddr,
+					ev->key.val, ev->key.type,
+					ev->key.pin_len, ev->key.data,
+					sizeof(*ltk));
+	}
+
+	btd_event_bonding_complete(&info->bdaddr, &ev->key.bdaddr, 0);
+}
+
 static gboolean mgmt_event(GIOChannel *io, GIOCondition cond, gpointer user_data)
 {
 	char buf[MGMT_BUF_SIZE];
@@ -1546,6 +1585,9 @@ static gboolean mgmt_event(GIOChannel *io, GIOCondition cond, gpointer user_data
 		break;
 	case MGMT_EV_DEVICE_UNBLOCKED:
 		mgmt_device_unblocked(sk, index, buf + MGMT_HDR_SIZE, len);
+		break;
+	case MGMT_EV_NEW_SMP_KEY:
+		mgmt_new_smp_key(sk, index, buf + MGMT_HDR_SIZE, len);
 		break;
 	default:
 		error("Unknown Management opcode %u (index %u)", opcode, index);
@@ -2096,6 +2138,57 @@ static int mgmt_remove_remote_oob_data(int index, bdaddr_t *bdaddr)
 	return 0;
 }
 
+static int mgmtops_load_smp_keys(int index, GSList *keys)
+{
+	char *buf;
+	struct mgmt_hdr *hdr;
+	struct mgmt_cp_load_smp_keys *cp;
+	struct mgmt_smp_key_info *key;
+	size_t key_count, cp_size;
+	GSList *l;
+	int err;
+
+	key_count = g_slist_length(keys);
+
+	DBG("index %d keys %zu", index, key_count);
+
+	cp_size = sizeof(*cp) + (key_count * sizeof(*key));
+
+	buf = g_try_malloc0(sizeof(*hdr) + cp_size);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	memset(buf, 0, sizeof(buf));
+
+	hdr = (void *) buf;
+	hdr->opcode = htobs(MGMT_OP_LOAD_SMP_KEYS);
+	hdr->len = htobs(cp_size);
+	hdr->index = htobs(index);
+
+	cp = (void *) (buf + sizeof(*hdr));
+	cp->key_count = htobs(key_count);
+
+	for (l = keys, key = cp->keys; l != NULL; l = g_slist_next(l), key++) {
+		struct smp_key_info *info = l->data;
+
+		bacpy(&key->bdaddr, &info->bdaddr);
+		key->type = info->type;
+		memcpy(key->val, info->val, 16);
+		key->pin_len = info->pin_len;
+
+		memcpy(key->data, info->data, info->dlen);
+	}
+
+	if (write(mgmt_sock, buf, sizeof(*hdr) + cp_size) < 0)
+		err = -errno;
+	else
+		err = 0;
+
+	g_free(buf);
+
+	return err;
+}
+
 static struct btd_adapter_ops mgmt_ops = {
 	.setup = mgmt_setup,
 	.cleanup = mgmt_cleanup,
@@ -2133,6 +2226,7 @@ static struct btd_adapter_ops mgmt_ops = {
 	.read_local_oob_data = mgmt_read_local_oob_data,
 	.add_remote_oob_data = mgmt_add_remote_oob_data,
 	.remove_remote_oob_data = mgmt_remove_remote_oob_data,
+	.load_smp_keys = mgmtops_load_smp_keys,
 };
 
 static int mgmt_init(void)

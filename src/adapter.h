@@ -63,6 +63,15 @@ struct link_key_info {
 	uint8_t pin_len;
 };
 
+struct smp_key_info {
+	bdaddr_t bdaddr;
+	uint8_t type;
+	uint8_t pin_len;
+	uint8_t val[16];
+	int dlen;
+	uint8_t *data;
+};
+
 struct remote_dev_info {
 	bdaddr_t bdaddr;
 	int8_t rssi;
@@ -219,6 +228,7 @@ struct btd_adapter_ops {
 	int (*add_remote_oob_data) (int index, bdaddr_t *bdaddr, uint8_t *hash,
 							uint8_t *randomizer);
 	int (*remove_remote_oob_data) (int index, bdaddr_t *bdaddr);
+	int (*load_smp_keys) (int index, GSList *keys);
 };
 
 int btd_register_adapter_ops(struct btd_adapter_ops *ops, gboolean priority);
