@@ -108,23 +108,6 @@ class PhoneAgent(dbus.service.Object):
         silent_mode = False
         restore_ringer()
 
-    @dbus.service.method("org.bluez.PhoneAgent",
-            in_signature="", out_signature="s")
-    def GetSilentMode(self):
-        print "GetSilentMode()"
-
-        global ringer_setting
-        return ringer_setting
-
-    @dbus.service.method("org.bluez.PhoneAgent",
-            in_signature="", out_signature="y")
-    def GetAlertStatus(self):
-        print "GetAlertStatus()"
-
-        global alert_status
-        return alert_status
-
-
 if __name__ == "__main__":
     dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
@@ -151,7 +134,7 @@ if __name__ == "__main__":
             "/test/phonealert"), "org.bluez.PhoneAlert")
 
     agent = PhoneAgent(system_bus, agent_path)
-    phone.RegisterAgent(agent_path)
+    phone.RegisterAgent(agent_path, dbus.Byte(alert_status), ringer_setting)
     print "destination:", system_bus.get_unique_name()
 
     mainloop = gobject.MainLoop()
