@@ -343,7 +343,7 @@ EXTRA_DIST += src/genbuiltin src/bluetooth.conf \
 			audio/audio.conf audio/telephony-dummy.c \
 			audio/telephony-maemo5.c audio/telephony-ofono.c \
 			audio/telephony-maemo6.c sap/sap-dummy.c sap/sap-u8500.c \
-			time/provider-dummy.c \
+			time/provider-dummy.c time/provider-timed.c \
 			proximity/proximity.conf
 
 if ALSA
