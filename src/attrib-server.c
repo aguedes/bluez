@@ -52,6 +52,9 @@
 
 #include "attrib-server.h"
 
+#define CCC_NOTIF_BIT		(1 << 0)
+#define CCC_IND_BIT		(1 << 1)
+
 static GSList *database = NULL;
 
 struct gatt_channel {
