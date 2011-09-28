@@ -10,10 +10,12 @@ StateActive = 3
 StateEnded = 6
 
 ALERT_RINGER_STATE = 1 << 0
+ALERT_VIBRATOR_STATE = 1 << 1
 
 on_call = False
 saved_ringer_setting = None
 ringer_setting = None
+vibrator_setting = None
 silent_mode = False
 alert_status = 0x00
 
@@ -25,14 +27,22 @@ def set_ringer(value):
 def get_ringer():
     return profiled.get_value("", "ringing.alert.type", dbus_interface="com.nokia.profiled")
 
+def get_vibrator():
+    return profiled.get_value("", "vibrating.alert.enabled", dbus_interface="com.nokia.profiled")
+
 def set_alert_status():
-    global ringer_setting, alert_status, on_call
+    global ringer_setting, vibrator_setting, alert_status, on_call
 
     old_alert_status = alert_status
     if on_call and ringer_setting != "Silent":
         alert_status |= ALERT_RINGER_STATE
     else:
         alert_status &= ~ALERT_RINGER_STATE
+
+    if on_call and vibrator_setting == "On":
+        alert_status |= ALERT_VIBRATOR_STATE
+    else:
+        alert_status &= ~ALERT_VIBRATOR_STATE
 
     if old_alert_status != alert_status:
         print "NotifyAlertStatus(%02x)" % alert_status
@@ -69,19 +79,22 @@ def call_state_changed(*args, **kwargs):
                 restore_ringer()
 
 def profile_changed(*args, **kwargs):
-    global ringer_setting
+    global ringer_setting, vibrator_setting
     print "profile_changed()"
     for item in args[3]:
-        if item[0] != "ringing.alert.type":
-            continue
-        print "Ringer: %s" % item[1]
-        if item[1] != ringer_setting or silent_mode:
-            ringer_setting = item[1]
-            print "NotifyRingerSetting(%s)" % ringer_setting
-            phone.NotifyRingerSetting(ringer_setting)
-            if silent_mode:
-                # User has changed profile, update saved setting
-                saved_ringer_setting = ringer_setting
+        if item[0] == "ringing.alert.type":
+            print "Ringer: %s" % item[1]
+            if item[1] != ringer_setting or silent_mode:
+                ringer_setting = item[1]
+                print "NotifyRingerSetting(%s)" % ringer_setting
+                phone.NotifyRingerSetting(ringer_setting)
+                if silent_mode:
+                    # User has changed profile, update saved setting
+                    saved_ringer_setting = ringer_setting
+        elif item[0] == "vibrating.alert.enabled":
+            print "Vibrator: %s" % item[1]
+            if item[1] != vibrator_setting:
+                vibrator_setting = item[1]
 
 class PhoneAgent(dbus.service.Object):
     @dbus.service.method("org.bluez.PhoneAgent",
@@ -127,6 +140,7 @@ if __name__ == "__main__":
     profiled.connect_to_signal("profile_changed", profile_changed,
             dbus_interface="com.nokia.profiled")
     ringer_setting = get_ringer()
+    vibrator_setting = get_vibrator()
 
     set_alert_status()
 
