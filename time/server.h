@@ -51,3 +51,5 @@ void time_provider_exit(void);
 /* Time provider control and status routines. Implemented by provider-*.c */
 void time_provider_status(uint8_t *state, uint8_t *result);
 uint8_t time_provider_control(int op);
+
+void current_time_updated(void);
