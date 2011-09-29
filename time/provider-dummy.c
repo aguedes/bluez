@@ -32,6 +32,8 @@ static guint timeout_id;
 
 static gboolean dummy_updated(gpointer user_data)
 {
+	DBG("");
+
 	current_time_updated();
 
 	return TRUE;
@@ -41,7 +43,7 @@ int time_provider_init(void)
 {
 	DBG("initializing dummy time provider");
 
-	timeout_id = g_timeout_add_seconds(15 * 60, dummy_updated, NULL);
+	timeout_id = g_timeout_add_seconds(10, dummy_updated, NULL);
 
 	return 0;
 }

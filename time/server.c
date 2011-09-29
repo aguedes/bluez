@@ -105,6 +105,8 @@ static uint8_t current_time_read(struct attribute *a, gpointer user_data)
 	uint8_t value[10];
 	int err;
 
+	DBG("");
+
 	err = encode_current_time(value);
 	if (err < 0)
 		return ATT_ECODE_IO;
@@ -123,6 +125,8 @@ static void filter_devices_notify(char *key, char *value, void *user_data)
 	uint16_t handle, ccc_val;
 
 	sscanf(key, "%17s#%04hX", addr, &handle);
+
+	DBG("addr %s handle %#x", addr, handle);
 
 	if (ccc->handle != handle)
 		return;
@@ -148,6 +152,8 @@ static GSList *devices_to_notify(struct btd_adapter *adapter, uint16_t ccc_hnd)
 	char srcaddr[18];
 	bdaddr_t src;
 
+	DBG("");
+
 	adapter_get_address(adapter, &src);
 	ba2str(&src, srcaddr);
 
@@ -163,6 +169,8 @@ static void send_notification(GAttrib *attrib, gpointer user_data)
 	struct notify_callback *callback = user_data;
 	uint8_t value[10], pdu[ATT_MAX_MTU];
 	int err, len;
+
+	DBG("");
 
 	err = encode_current_time(value);
 	if (err)
@@ -183,6 +191,8 @@ void current_time_updated(void)
 {
 	struct btd_adapter *adapter;
 	GSList *devices, *l;
+
+	DBG("");
 
 	adapter = manager_get_default_adapter();
 
@@ -242,6 +252,8 @@ static void register_current_time_service(void)
 							local_time_info_read,
 
 				GATT_OPT_INVALID);
+
+	DBG("ccc %#x value %#x", current_time_ccc_handle, current_time_value_handle);
 }
 
 static uint8_t time_update_control(struct attribute *a, gpointer user_data)
