@@ -23,21 +23,34 @@
  */
 
 #include <stdint.h>
+#include <glib.h>
 
 #include "server.h"
 #include "log.h"
+
+static guint timeout_id;
+
+static gboolean dummy_updated(gpointer user_data)
+{
+	current_time_updated();
+
+	return TRUE;
+}
 
 int time_provider_init(void)
 {
 	DBG("initializing dummy time provider");
 
+	timeout_id = g_timeout_add_seconds(15 * 60, dummy_updated, NULL);
+
 	return 0;
 }
-
 
 void time_provider_exit(void)
 {
 	DBG("exiting dummy time provider");
+
+	g_source_remove(timeout_id);
 }
 
 void time_provider_status(uint8_t *state, uint8_t *result)
