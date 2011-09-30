@@ -59,6 +59,11 @@ struct adapter_ccc {
 	GSList *devices;
 };
 
+struct notify_callback {
+	struct btd_device *device;
+	guint id;
+};
+
 static uint16_t current_time_ccc_handle;
 static uint16_t current_time_value_handle;
 
@@ -151,17 +156,22 @@ static GSList *devices_to_notify(struct btd_adapter *adapter, uint16_t ccc_hnd)
 
 static void send_notification(GAttrib *attrib, gpointer user_data)
 {
+	struct notify_callback *callback = user_data;
 	uint8_t value[10], pdu[ATT_MAX_MTU];
 	int err, len;
 
 	err = encode_current_time(value);
 	if (err)
-		return;
+		goto done;
 
 	len = enc_notification(current_time_value_handle, value, sizeof(value),
 							pdu, sizeof(pdu));
 	g_attrib_send(attrib, 0, ATT_OP_HANDLE_NOTIFY, pdu, len,
 							NULL, NULL, NULL);
+
+done:
+	btd_device_remove_attio_callback(callback->device, callback->id);
+	g_free(callback);
 }
 
 void current_time_updated(void)
@@ -175,8 +185,13 @@ void current_time_updated(void)
 
 	for (l = devices; l; l = l->next) {
 		struct btd_device *device = l->data;
+		struct notify_callback *callback;
 
-		btd_device_add_attio_callback(device, send_notification, NULL, NULL);
+		callback = g_new0(struct notify_callback, 1);
+		callback->device = device;
+
+		callback->id = btd_device_add_attio_callback(device,
+					send_notification, NULL, callback);
 	}
 
 	g_slist_free(devices);
