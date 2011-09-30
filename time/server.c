@@ -56,13 +56,14 @@
 struct adapter_ccc {
 	struct btd_adapter *adapter;
 	uint16_t handle;
-	GSList *devices;
 };
 
 struct notify_callback {
 	struct btd_device *device;
 	guint id;
 };
+
+static GSList *devices_notify;
 
 static uint16_t current_time_ccc_handle;
 static uint16_t current_time_value_handle;
@@ -134,12 +135,15 @@ static void filter_devices_notify(char *key, char *value, void *user_data)
 	if (device == NULL)
 		return;
 
-	ccc->devices = g_slist_append(ccc->devices, device);
+	if (g_slist_find(devices_notify, device))
+		return;
+
+	devices_notify = g_slist_append(devices_notify, device);
 }
 
 static GSList *devices_to_notify(struct btd_adapter *adapter, uint16_t ccc_hnd)
 {
-	struct adapter_ccc ccc_list = { adapter, ccc_hnd, NULL };
+	struct adapter_ccc ccc_list = { adapter, ccc_hnd };
 	char filename[PATH_MAX + 1];
 	char srcaddr[18];
 	bdaddr_t src;
@@ -151,7 +155,7 @@ static GSList *devices_to_notify(struct btd_adapter *adapter, uint16_t ccc_hnd)
 
 	textfile_foreach(filename, filter_devices_notify, &ccc_list);
 
-	return ccc_list.devices;
+	return devices_notify;
 }
 
 static void send_notification(GAttrib *attrib, gpointer user_data)
@@ -171,6 +175,7 @@ static void send_notification(GAttrib *attrib, gpointer user_data)
 
 done:
 	btd_device_remove_attio_callback(callback->device, callback->id);
+	devices_notify = g_slist_remove(devices_notify, callback->device);
 	g_free(callback);
 }
 
@@ -193,8 +198,6 @@ void current_time_updated(void)
 		callback->id = btd_device_add_attio_callback(device,
 					send_notification, NULL, callback);
 	}
-
-	g_slist_free(devices);
 }
 
 static uint8_t local_time_info_read(struct attribute *a, gpointer user_data)
@@ -301,4 +304,6 @@ int time_server_init(void)
 void time_server_exit(void)
 {
 	time_provider_exit();
+
+	g_slist_free(devices_notify);
 }
