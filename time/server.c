@@ -195,6 +195,8 @@ void current_time_updated(void)
 	DBG("");
 
 	adapter = manager_get_default_adapter();
+	if (adapter == NULL)
+		return;
 
 	devices = devices_to_notify(adapter, current_time_ccc_handle);
 
