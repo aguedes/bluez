@@ -100,7 +100,6 @@ struct authentication_req {
 struct browse_req {
 	DBusConnection *conn;
 	DBusMessage *msg;
-	GIOChannel *io;
 	struct btd_device *device;
 	GSList *match_uuids;
 	GSList *profiles_added;
@@ -176,11 +175,6 @@ static void browse_request_free(struct browse_req *req, gboolean shutdown)
 {
 	if (req->listener_id)
 		g_dbus_remove_watch(req->conn, req->listener_id);
-	if (req->io) {
-		if (shutdown)
-			g_io_channel_shutdown(req->io, FALSE, NULL);
-		g_io_channel_unref(req->io);
-	}
 	if (req->msg)
 		dbus_message_unref(req->msg);
 	if (req->conn)
@@ -207,6 +201,12 @@ static void browse_request_cancel(struct browse_req *req)
 	adapter_get_address(adapter, &src);
 
 	bt_cancel_discovery(&src, &device->bdaddr);
+
+	if (device->att_io) {
+		g_io_channel_shutdown(device->att_io, FALSE, NULL);
+		g_io_channel_unref(device->att_io);
+		device->att_io = NULL;
+	}
 
 	device->browse = NULL;
 	browse_request_free(req, TRUE);
@@ -1881,6 +1881,9 @@ static void browse_primary_connect_cb(GIOChannel *io, GError *gerr,
 	struct btd_device *device = user_data;
 	struct browse_req *req = device->browse;
 
+	g_io_channel_unref(device->att_io);
+	device->att_io = NULL;
+
 	if (gerr) {
 		DBusMessage *reply;
 
@@ -1921,7 +1924,7 @@ int device_browse_primary(struct btd_device *device, DBusConnection *conn,
 
 	sec_level = secure ? BT_IO_SEC_HIGH : BT_IO_SEC_LOW;
 
-	req->io = bt_io_connect(BT_IO_L2CAP, browse_primary_connect_cb,
+	device->att_io = bt_io_connect(BT_IO_L2CAP, browse_primary_connect_cb,
 				device, NULL, NULL,
 				BT_IO_OPT_SOURCE_BDADDR, &src,
 				BT_IO_OPT_DEST_BDADDR, &device->bdaddr,
@@ -1929,7 +1932,7 @@ int device_browse_primary(struct btd_device *device, DBusConnection *conn,
 				BT_IO_OPT_SEC_LEVEL, sec_level,
 				BT_IO_OPT_INVALID);
 
-	if (req->io == NULL) {
+	if (device->att_io == NULL) {
 		browse_request_free(req, FALSE);
 		return -EIO;
 	}
