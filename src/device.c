@@ -101,7 +101,6 @@ struct browse_req {
 	DBusConnection *conn;
 	DBusMessage *msg;
 	GIOChannel *io;
-	GAttrib *attrib;
 	struct btd_device *device;
 	GSList *match_uuids;
 	GSList *profiles_added;
@@ -177,8 +176,6 @@ static void browse_request_free(struct browse_req *req, gboolean shutdown)
 {
 	if (req->listener_id)
 		g_dbus_remove_watch(req->conn, req->listener_id);
-	if (req->attrib)
-		g_attrib_unref(req->attrib);
 	if (req->io) {
 		if (shutdown)
 			g_io_channel_shutdown(req->io, FALSE, NULL);
@@ -1776,13 +1773,6 @@ static void primary_cb(GSList *services, guint8 status, gpointer user_data)
 		uuids = g_slist_append(uuids, prim->uuid);
 	}
 
-	/*
-	 * Profiles may register attio callbacks in the probing callback.
-	 * GAttrib reference can be released if the registered callbacks
-	 * list is emtpy.
-	 */
-	device->attrib = g_attrib_ref(req->attrib);
-
 	device_register_services(req->conn, device, g_slist_copy(services), -1);
 	device_probe_drivers(device, uuids);
 
@@ -1890,7 +1880,6 @@ static void browse_primary_connect_cb(GIOChannel *io, GError *gerr,
 {
 	struct btd_device *device = user_data;
 	struct browse_req *req = device->browse;
-	GAttrib *attrib;
 
 	if (gerr) {
 		DBusMessage *reply;
@@ -1906,13 +1895,12 @@ static void browse_primary_connect_cb(GIOChannel *io, GError *gerr,
 		return;
 	}
 
-	attrib = g_attrib_new(io);
-	device->attachid = attrib_channel_attach(attrib, TRUE);
+	device->attrib = g_attrib_new(io);
+	device->attachid = attrib_channel_attach(device->attrib, TRUE);
 	if (device->attachid == 0)
 		error("Attribute server attach failure!");
 
-	req->attrib = attrib;
-	gatt_discover_primary(req->attrib, NULL, primary_cb, req);
+	gatt_discover_primary(device->attrib, NULL, primary_cb, req);
 }
 
 int device_browse_primary(struct btd_device *device, DBusConnection *conn,
