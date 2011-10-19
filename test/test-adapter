@@ -37,6 +37,7 @@ if (len(args) < 1):
 	print "  discoverable [on/off]"
 	print "  discoverabletimeout [timeout]"
 	print "  discovering"
+	print "  autoconnect"
 	sys.exit(1)
 
 if (args[0] == "address"):
@@ -80,6 +81,20 @@ if (args[0] == "powered"):
 		else:
 			value = dbus.Boolean(args[1])
 		adapter.SetProperty("Powered", value)
+	sys.exit(0)
+
+if (args[0] == "autoconnect"):
+	if (len(args) < 2):
+		properties = adapter.GetProperties()
+		print properties["AutoConnect"]
+	else:
+		if (args[1] == "on"):
+			value = dbus.Boolean(1)
+		elif (args[1] == "off"):
+			value = dbus.Boolean(0)
+		else:
+			value = dbus.Boolean(args[1])
+		adapter.SetProperty("AutoConnect", value)
 	sys.exit(0)
 
 if (args[0] == "pairable"):

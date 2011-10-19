@@ -1418,6 +1418,9 @@ static DBusMessage *set_property(DBusConnection *conn,
 		dbus_message_iter_get_basic(&sub, &timeout);
 
 		return set_pairable_timeout(conn, msg, timeout, data);
+	} else if (g_str_equal("AutoConnect", property)) {
+		btd_adapter_enable_auto_connect(adapter);
+		return dbus_message_new_method_return(msg);
 	}
 
 	return btd_error_invalid_args(msg);
