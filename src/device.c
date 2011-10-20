@@ -1920,11 +1920,14 @@ int device_browse_primary(struct btd_device *device, DBusConnection *conn,
 	req = g_new0(struct browse_req, 1);
 	req->device = btd_device_ref(device);
 
-	adapter_get_address(adapter, &src);
+	if (device->attrib) {
+		gatt_discover_primary(device->attrib, NULL, primary_cb, req);
+	} else {
+		adapter_get_address(adapter, &src);
 
-	sec_level = secure ? BT_IO_SEC_HIGH : BT_IO_SEC_LOW;
+		sec_level = secure ? BT_IO_SEC_HIGH : BT_IO_SEC_LOW;
 
-	device->att_io = bt_io_connect(BT_IO_L2CAP, browse_primary_connect_cb,
+		device->att_io = bt_io_connect(BT_IO_L2CAP, browse_primary_connect_cb,
 				device, NULL, NULL,
 				BT_IO_OPT_SOURCE_BDADDR, &src,
 				BT_IO_OPT_DEST_BDADDR, &device->bdaddr,
@@ -1932,9 +1935,10 @@ int device_browse_primary(struct btd_device *device, DBusConnection *conn,
 				BT_IO_OPT_SEC_LEVEL, sec_level,
 				BT_IO_OPT_INVALID);
 
-	if (device->att_io == NULL) {
-		browse_request_free(req, FALSE);
-		return -EIO;
+		if (device->att_io == NULL) {
+			browse_request_free(req, FALSE);
+			return -EIO;
+		}
 	}
 
 	req->conn = dbus_connection_ref(conn);
