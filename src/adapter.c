@@ -1680,6 +1680,9 @@ static DBusMessage *create_paired_device(DBusConnection *conn,
 	if (cap == IO_CAPABILITY_INVALID)
 		return btd_error_invalid_args(msg);
 
+	if (adapter->state == STATE_DISCOV)
+		adapter_suspend_discovery(adapter);
+
 	device = adapter_find_device(adapter, address);
 	if (!device) {
 		device = create_device_internal(conn, adapter, address, &err);

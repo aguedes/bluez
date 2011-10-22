@@ -2315,6 +2315,9 @@ static void bonding_connect_cb(GIOChannel *io, GError *gerr,
 	g_io_channel_unref(device->att_io);
 	device->att_io = NULL;
 
+	if (adapter_get_state(device->adapter) == STATE_SUSPENDED)
+		adapter_resume_discovery(device->adapter);
+
 	if (gerr) {
 		DBusMessage *reply = btd_error_failed(device->bonding->msg,
 								gerr->message);
