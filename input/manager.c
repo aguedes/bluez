@@ -197,6 +197,7 @@ void input_manager_exit(void)
 	connection = NULL;
 }
 
+#ifdef HAVE_LINUX_UHID_H
 static int hog_device_probe(struct btd_device *device, GSList *uuids)
 {
 	const char *path = device_get_path(device);
@@ -231,3 +232,4 @@ void hog_manager_exit(void)
 {
 	btd_unregister_device_driver(&hog_driver);
 }
+#endif

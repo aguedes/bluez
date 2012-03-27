@@ -39,6 +39,7 @@ AC_CHECK_HEADER([sys/inotify.h],
 		[AC_DEFINE([HAVE_SYS_INOTIFY_H], 1,
 			[Define to 1 if you have <sys/inotify.h>.])],
 			[AC_MSG_ERROR(inotify headers are required and missing)])
+
 AC_PATH_DBUS
 AC_PATH_GLIB
 AC_PATH_GSTREAMER
@@ -48,6 +49,7 @@ AC_PATH_SNDFILE
 AC_PATH_OUI
 AC_PATH_READLINE
 AC_PATH_CHECK
+AC_PATH_UHID
 
 AC_ARG_BLUEZ
 
