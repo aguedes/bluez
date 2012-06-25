@@ -1000,13 +1000,9 @@ struct btd_device *adapter_get_device(DBusConnection *conn,
 static gboolean discovery_cb(gpointer user_data)
 {
 	struct btd_adapter *adapter = user_data;
-	int err;
 
 	adapter->discov_id = 0;
-
-	err = adapter_ops->start_discovery(adapter->dev_id);
-	if (err < 0)
-		error("start_discovery: %s (%d)", strerror(-err), -err);
+	adapter_ops->start_discovery(adapter->dev_id);
 
 	return FALSE;
 }
