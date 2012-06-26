@@ -1976,7 +1976,7 @@ static void att_success_cb(gpointer user_data)
 	g_slist_foreach(device->attios, attio_connected, device->attrib);
 }
 
-gboolean device_att_connect(gpointer user_data)
+GIOChannel *device_att_connect(gpointer user_data)
 {
 	struct btd_device *device = user_data;
 	struct btd_adapter *adapter = device->adapter;
@@ -2024,7 +2024,7 @@ gboolean device_att_connect(gpointer user_data)
 
 	device->att_io = io;
 
-	return FALSE;
+	return io;
 }
 
 static void att_browse_error_cb(const GError *gerr, gpointer user_data)
