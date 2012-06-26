@@ -279,3 +279,5 @@ int btd_adapter_remove_remote_oob_data(struct btd_adapter *adapter,
 
 int btd_adapter_gatt_server_start(struct btd_adapter *adapter);
 void btd_adapter_gatt_server_stop(struct btd_adapter *adapter);
+void adapter_connect_list_add(struct btd_adapter *adapter, struct btd_device *device);
+void adapter_connect_list_remove(struct btd_adapter *adapter, struct btd_device *device);
