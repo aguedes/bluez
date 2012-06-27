@@ -2228,7 +2228,7 @@ void btd_adapter_start(struct btd_adapter *adapter)
 	info("Adapter %s has been enabled", adapter->path);
 
 	if (g_slist_length(adapter->connect_list))
-		adapter_ops->start_discovery(adapter->dev_id);
+		adapter_ops->start_scanning(adapter->dev_id);
 }
 
 static void reply_pending_requests(struct btd_adapter *adapter)
@@ -2562,14 +2562,22 @@ void adapter_set_discovering(struct btd_adapter *adapter,
 
 	connect_list_size = g_slist_length(adapter->connect_list);
 
-	if (!adapter_has_discov_sessions(adapter) && !connect_list_size)
+	if (adapter_has_discov_sessions(adapter)) {
+		adapter->discov_id = g_idle_add(discovery_cb, adapter);
+
+		DBG("hci%u restarting discovery: disc_sessions %u",
+				adapter->dev_id,
+				g_slist_length(adapter->disc_sessions));
 		return;
+	}
 
-	DBG("hci%u restarting discovery: disc_sessions %u, connect_list size "
-		"%u", adapter->dev_id, g_slist_length(adapter->disc_sessions),
-							connect_list_size);
+	if (connect_list_size) {
+		adapter_ops->start_scanning(adapter->dev_id);
 
-	adapter->discov_id = g_idle_add(discovery_cb, adapter);
+		DBG("hci%u restarting scanning connect_list size %u",
+				adapter->dev_id, connect_list_size);
+		return;
+	}
 }
 
 static void suspend_discovery(struct btd_adapter *adapter)
@@ -2876,7 +2884,7 @@ static gboolean clean_connecting_state(GIOChannel *io, GIOCondition cond, gpoint
 
 	if (!g_slist_length(adapter->connecting_list) &&
 					g_slist_length(adapter->connect_list))
-		adapter_ops->start_discovery(adapter->dev_id);
+		adapter_ops->start_scanning(adapter->dev_id);
 
 	btd_device_unref(device);
 
