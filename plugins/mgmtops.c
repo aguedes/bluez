@@ -1969,6 +1969,38 @@ static int mgmt_start_discovery(int index)
 	return 0;
 }
 
+static int mgmt_start_scanning(int index)
+{
+	char buf[MGMT_HDR_SIZE + sizeof(struct mgmt_cp_start_discovery)];
+	struct mgmt_hdr *hdr = (void *) buf;
+	struct mgmt_cp_start_discovery *cp = (void *) &buf[sizeof(*hdr)];
+	struct controller_info *info = &controllers[index];
+
+	DBG("index %d", index);
+
+	info->discov_type = 0;
+
+	if (mgmt_low_energy(info->current_settings)) {
+		hci_set_bit(BDADDR_LE_PUBLIC, &info->discov_type);
+		hci_set_bit(BDADDR_LE_RANDOM, &info->discov_type);
+	}
+
+	memset(buf, 0, sizeof(buf));
+	hdr->opcode = htobs(MGMT_OP_START_DISCOVERY);
+	hdr->len = htobs(sizeof(*cp));
+	hdr->index = htobs(index);
+
+	cp->type = info->discov_type;
+
+	if (write(mgmt_sock, buf, sizeof(buf)) < 0) {
+		int err = errno;
+		error("failed to write to MGMT socket: %s", strerror(err));
+		return -err;
+	}
+
+	return 0;
+}
+
 static int mgmt_stop_discovery(int index)
 {
 	char buf[MGMT_HDR_SIZE + sizeof(struct mgmt_cp_start_discovery)];
@@ -2457,6 +2489,8 @@ static struct btd_adapter_ops mgmt_ops = {
 	.set_pairable = mgmt_set_pairable,
 	.start_discovery = mgmt_start_discovery,
 	.stop_discovery = mgmt_stop_discovery,
+	.start_scanning = mgmt_start_scanning,
+	.stop_scanning = mgmt_stop_discovery,
 	.set_name = mgmt_set_name,
 	.set_dev_class = mgmt_set_dev_class,
 	.set_fast_connectable = mgmt_set_fast_connectable,
