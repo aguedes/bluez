@@ -66,8 +66,6 @@
 #define DISCONNECT_TIMER	2
 #define DISCOVERY_TIMER		2
 
-#define AUTO_CONNECTION_INTERVAL	5 /* Next connection attempt */
-
 /* When all services should trust a remote device */
 #define GLOBAL_TRUST "[all]"
 
