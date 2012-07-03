@@ -83,7 +83,8 @@ static void attio_device_remove(struct btd_device *device)
 
 static struct btd_device_driver monitor_driver = {
 	.name = "Proximity GATT Monitor Driver",
-	.uuids = BTD_UUIDS(IMMEDIATE_ALERT_UUID, LINK_LOSS_UUID, TX_POWER_UUID),
+	.uuids = BTD_UUIDS(IMMEDIATE_ALERT_UUID, LINK_LOSS_UUID, TX_POWER_UUID,
+								GATT_UUID),
 	.probe = attio_device_probe,
 	.remove = attio_device_remove,
 };

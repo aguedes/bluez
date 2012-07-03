@@ -652,7 +652,7 @@ int monitor_register(DBusConnection *conn, struct btd_device *device,
 				monitor->enabled.pathloss ? "TRUE" : "FALSE",
 				monitor->enabled.findme ? "TRUE" : "FALSE");
 
-	if (monitor->enabled.linkloss || monitor->enabled.pathloss)
+	//if (monitor->enabled.linkloss || monitor->enabled.pathloss)
 		monitor->attioid = btd_device_add_attio_callback(device,
 							attio_connected_cb,
 							attio_disconnected_cb,
