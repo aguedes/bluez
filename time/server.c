@@ -111,8 +111,9 @@ static uint8_t local_time_info_read(struct attribute *a,
 	 * format (offset from UTC in number of 15 minutes increments). */
 	value[0] = (uint8_t) (-1 * timezone / (60 * 15));
 
-	/* FIXME: POSIX "daylight" variable only indicates whether there is DST
-	 * for the local time or not. The offset is unknown. */
+	/* FIXME: POSIX "daylight" variable only indicates if DST is used for
+	 * the local time or not. Both the offset and wheter it's currently
+	 * active is unknown. */
 	value[1] = daylight ? 0xff : 0x00;
 
 	attrib_db_update(adapter, a->handle, NULL, value, sizeof(value), NULL);
