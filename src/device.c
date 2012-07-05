@@ -66,8 +66,6 @@
 #define DISCONNECT_TIMER	2
 #define DISCOVERY_TIMER		2
 
-#define AUTO_CONNECTION_INTERVAL	5 /* Next connection attempt */
-
 /* When all services should trust a remote device */
 #define GLOBAL_TRUST "[all]"
 
@@ -200,7 +198,7 @@ static void browse_request_free(struct browse_req *req)
 	g_free(req);
 }
 
-static void att_cleanup(struct btd_device *device)
+static void attio_cleanup(struct btd_device *device)
 {
 	if (device->attachid) {
 		attrib_channel_detach(device->attrib, device->attachid);
@@ -237,7 +235,7 @@ static void browse_request_cancel(struct browse_req *req)
 
 	bt_cancel_discovery(&src, &device->bdaddr);
 
-	att_cleanup(device);
+	attio_cleanup(device);
 
 	device->browse = NULL;
 	browse_request_free(req);
@@ -262,7 +260,7 @@ static void device_free(gpointer user_data)
 	g_slist_free_full(device->attios, g_free);
 	g_slist_free_full(device->attios_offline, g_free);
 
-	att_cleanup(device);
+	attio_cleanup(device);
 
 	if (device->tmp_records)
 		sdp_list_free(device->tmp_records,
@@ -1231,6 +1229,11 @@ gint device_address_cmp(struct btd_device *device, const gchar *address)
 	return strcasecmp(addr, address);
 }
 
+gint device_bdaddr_cmp(struct btd_device *device, bdaddr_t *bdaddr)
+{
+	return bacmp(&device->bdaddr, bdaddr);
+}
+
 static gboolean record_has_uuid(const sdp_record_t *rec,
 				const char *profile_uuid)
 {
@@ -1790,15 +1793,6 @@ static void attio_disconnected(gpointer data, gpointer user_data)
 		attio->dcfunc(attio->user_data);
 }
 
-static void att_connect_dispatched(gpointer user_data)
-{
-	struct btd_device *device = user_data;
-
-	device->auto_id = 0;
-}
-
-static gboolean att_connect(gpointer user_data);
-
 static gboolean attrib_disconnected_cb(GIOChannel *io, GIOCondition cond,
 							gpointer user_data)
 {
@@ -1815,16 +1809,13 @@ static gboolean attrib_disconnected_cb(GIOChannel *io, GIOCondition cond,
 
 	g_slist_foreach(device->attios, attio_disconnected, NULL);
 
-	if (device->auto_connect == FALSE || err != ETIMEDOUT)
+	if (device->auto_connect == FALSE)
 		goto done;
 
-	device->auto_id = g_timeout_add_seconds_full(G_PRIORITY_DEFAULT_IDLE,
-						AUTO_CONNECTION_INTERVAL,
-						att_connect, device,
-						att_connect_dispatched);
+	adapter_connect_list_add(device_get_adapter(device), device);
 
 done:
-	att_cleanup(device);
+	attio_cleanup(device);
 
 	return FALSE;
 }
@@ -1866,7 +1857,7 @@ static void appearance_cb(guint8 status, const guint8 *pdu, guint16 plen,
 done:
 	att_data_list_free(list);
 	if (device->attios == NULL && device->attios_offline == NULL)
-		att_cleanup(device);
+		attio_cleanup(device);
 }
 
 static void primary_cb(GSList *services, guint8 status, gpointer user_data)
@@ -1909,7 +1900,7 @@ static void primary_cb(GSList *services, guint8 status, gpointer user_data)
 		gatt_read_char_by_uuid(device->attrib, gap_prim->range.start,
 			gap_prim->range.end, &uuid, appearance_cb, device);
 	} else if (device->attios == NULL && device->attios_offline == NULL)
-		att_cleanup(device);
+		attio_cleanup(device);
 
 	g_slist_free(uuids);
 
@@ -1962,14 +1953,13 @@ static void att_error_cb(const GError *gerr, gpointer user_data)
 	struct att_callbacks *attcb = user_data;
 	struct btd_device *device = attcb->user_data;
 
+	if (gerr->code == ECONNABORTED)
+		return;
+
 	if (device->auto_connect == FALSE)
 		return;
 
-	device->auto_id = g_timeout_add_seconds_full(G_PRIORITY_DEFAULT_IDLE,
-						AUTO_CONNECTION_INTERVAL,
-						att_connect, device,
-						att_connect_dispatched);
-
+	adapter_connect_list_add(device_get_adapter(device), device);
 	DBG("Enabling automatic connections");
 }
 
@@ -1984,7 +1974,7 @@ static void att_success_cb(gpointer user_data)
 	g_slist_foreach(device->attios, attio_connected, device->attrib);
 }
 
-static gboolean att_connect(gpointer user_data)
+GIOChannel *device_att_connect(gpointer user_data)
 {
 	struct btd_device *device = user_data;
 	struct btd_adapter *adapter = device->adapter;
@@ -2032,7 +2022,7 @@ static gboolean att_connect(gpointer user_data)
 
 	device->att_io = io;
 
-	return FALSE;
+	return io;
 }
 
 static void att_browse_error_cb(const GError *gerr, gpointer user_data)
@@ -2269,6 +2259,7 @@ void device_set_bonded(struct btd_device *device, gboolean bonded)
 
 void device_set_auto_connect(struct btd_device *device, gboolean enable)
 {
+	struct btd_adapter *adapter = device_get_adapter(device);
 	char addr[18];
 
 	if (!device)
@@ -2282,14 +2273,9 @@ void device_set_auto_connect(struct btd_device *device, gboolean enable)
 
 	/* Disabling auto connect */
 	if (enable == FALSE) {
-		if (device->auto_id)
-			g_source_remove(device->auto_id);
+		adapter_connect_list_remove(adapter, device);
 		return;
 	}
-
-	/* Enabling auto connect */
-	if (device->auto_id != 0)
-		return;
 
 	if (device->attrib) {
 		DBG("Already connected");
@@ -2299,9 +2285,8 @@ void device_set_auto_connect(struct btd_device *device, gboolean enable)
 	if (device->attios == NULL && device->attios_offline == NULL)
 		return;
 
-	device->auto_id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE,
-						att_connect, device,
-						att_connect_dispatched);
+	/* Enabling auto connect */
+	adapter_connect_list_add(adapter, device);
 }
 
 static gboolean start_discovery(gpointer user_data)
@@ -3102,10 +3087,7 @@ guint btd_device_add_attio_callback(struct btd_device *device,
 
 	device->attios = g_slist_append(device->attios, attio);
 
-	if (device->auto_id == 0)
-		device->auto_id = g_idle_add_full(G_PRIORITY_DEFAULT_IDLE,
-						att_connect, device,
-						att_connect_dispatched);
+	adapter_connect_list_add(device_get_adapter(device), device);
 
 	return attio->id;
 }
@@ -3149,7 +3131,7 @@ gboolean btd_device_remove_attio_callback(struct btd_device *device, guint id)
 		device->auto_id = 0;
 	}
 
-	att_cleanup(device);
+	attio_cleanup(device);
 
 	return TRUE;
 }

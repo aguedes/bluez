@@ -2,7 +2,8 @@
  *
  *  BlueZ - Bluetooth protocol stack for Linux
  *
- *  Copyright (C) 2004-2010  Marcel Holtmann <marcel@holtmann.org>
+ *  Copyright (C) 2012  Marcel Holtmann <marcel@holtmann.org>
+ *  Copyright (C) 2012  Instituto Nokia de Tecnologia - INdT
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,8 +22,7 @@
  *
  */
 
-int input_manager_init(DBusConnection *conn, GKeyFile *config);
-void input_manager_exit(void);
+#define HOG_UUID		"00001812-0000-1000-8000-00805f9b34fb"
 
-int hog_manager_init(void);
-void hog_manager_exit(void);
+int hog_device_register(struct btd_device *device, const char *path);
+int hog_device_unregister(const char *path);

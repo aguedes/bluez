@@ -32,6 +32,7 @@
 #include <gdbus.h>
 
 #include "plugin.h"
+#include "hcid.h"
 #include "log.h"
 #include "manager.h"
 
@@ -84,3 +85,26 @@ static void input_exit(void)
 
 BLUETOOTH_PLUGIN_DEFINE(input, VERSION, BLUETOOTH_PLUGIN_PRIORITY_DEFAULT,
 							input_init, input_exit)
+
+#ifdef HAVE_LINUX_UHID_H
+static int hog_init(void)
+{
+	if (!main_opts.gatt_enabled) {
+		DBG("GATT is disabled");
+		return -ENOTSUP;
+	}
+
+	return hog_manager_init();
+}
+
+static void hog_exit(void)
+{
+	if (!main_opts.gatt_enabled)
+		return;
+
+	hog_manager_exit();
+}
+
+BLUETOOTH_PLUGIN_DEFINE(hog, VERSION, BLUETOOTH_PLUGIN_PRIORITY_DEFAULT,
+							hog_init, hog_exit)
+#endif
