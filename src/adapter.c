@@ -2213,6 +2213,7 @@ void adapter_connect_list_add(struct btd_adapter *adapter,
 void adapter_connect_list_remove(struct btd_adapter *adapter,
 					struct btd_device *device)
 {
+	/* FIXME: do we need to check if in the list? */
 	adapter->connect_list = g_slist_remove(adapter->connect_list, device);
 	DBG("%s removed from %s's connect_list", device_get_path(device),
 								adapter->name);
