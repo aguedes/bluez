@@ -23,8 +23,10 @@
  */
 
 #define DEVICE_INTERFACE	"org.bluez.Device"
+#define BATTERY_INTERFACE      "org.bluez.Battery"
 
 struct btd_device;
+struct btd_battery;
 
 typedef enum {
 	AUTH_TYPE_PINCODE,
@@ -33,6 +35,14 @@ typedef enum {
 	AUTH_TYPE_NOTIFY_PASSKEY,
 	AUTH_TYPE_NOTIFY_PINCODE,
 } auth_type_t;
+
+typedef void (*refresh_battery_cb) (struct btd_battery *batt);
+
+typedef enum {
+	BATTERY_OPT_INVALID = 0,
+	BATTERY_OPT_LEVEL,
+	BATTERY_OPT_REFRESH_FUNC,
+} battery_option_t;
 
 struct btd_device *device_create(struct btd_adapter *adapter,
 				const char *address, uint8_t bdaddr_type);
@@ -125,3 +135,7 @@ void device_set_pnpid(struct btd_device *device, uint8_t vendor_id_src,
 			uint16_t vendor_id, uint16_t product_id,
 			uint16_t product_ver);
 GIOChannel *device_att_connect(gpointer user_data);
+struct btd_battery *btd_device_add_battery(struct btd_device *device);
+void btd_device_remove_battery(struct btd_battery *batt);
+gboolean btd_device_set_battery_opt(struct btd_battery *batt,
+						    battery_option_t opt1, ...);

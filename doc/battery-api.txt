@@ -1,0 +1,31 @@
+BlueZ D-Bus Battery API description
+****************************************
+
+	Texas Instruments, Inc. <chen.ganir@ti.com>
+
+Device Battery hierarchy
+=====================================
+
+Service		org.bluez
+Interface	org.bluez.Battery
+Object path	[variable prefix]/{hci0,..}/dev_XX_XX_XX_XX_XX_XX/BATTYYYY
+YYYY is numeric value between 0 and 9999.
+
+Methods	dict GetProperties()
+
+			Returns all properties for the interface. See the
+			Properties section for the available properties.
+
+		void Refresh()
+
+			Refresh the batterty level. If the battery level changed, the
+			PropertyChanged signal will be sent with the new value.
+
+Signals		PropertyChanged(string name, variant value)
+
+			This signal indicates a changed value of the given
+			property.
+
+Properties	uint16 Level [readonly]
+
+			Battery level (0-100).

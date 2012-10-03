@@ -212,7 +212,7 @@ endif
 
 if GATTMODULES
 builtin_modules += thermometer alert time gatt_example proximity deviceinfo \
-			gatt scanparam heartrate
+			gatt scanparam heartrate battery
 builtin_sources += profiles/thermometer/main.c \
 			profiles/thermometer/manager.h \
 			profiles/thermometer/manager.c \
@@ -251,8 +251,12 @@ builtin_sources += profiles/thermometer/main.c \
 			profiles/heartrate/manager.c \
 			profiles/heartrate/manager.h \
 			profiles/heartrate/heartrate.c \
-			profiles/heartrate/heartrate.h
-
+			profiles/heartrate/heartrate.h \
+			profiles/battery/main.c \
+			profiles/battery/manager.c \
+			profiles/battery/manager.h \
+			profiles/battery/battery.c \
+			profiles/battery/battery.h
 endif
 
 builtin_modules += formfactor
