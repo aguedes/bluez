@@ -299,6 +299,7 @@ static void attio_connected_cb(GAttrib *attrib, gpointer user_data)
 	gas->attrib = g_attrib_ref(attrib);
 
 	gas->changed_ind = g_attrib_register(gas->attrib, ATT_OP_HANDLE_IND,
+						GATTRIB_ALL_HANDLES,
 						indication_cb, gas, NULL);
 
 	if (device_get_appearance(gas->device, &app) < 0) {

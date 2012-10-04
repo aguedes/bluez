@@ -514,7 +514,9 @@ static void attio_connected_cb(GAttrib *attrib, gpointer user_data)
 
 	batt->attrib = g_attrib_ref(attrib);
 
-	batt->attnotid = g_attrib_register(batt->attrib, ATT_OP_HANDLE_NOTIFY,
+	batt->attnotid = g_attrib_register(batt->attrib,
+						ATT_OP_HANDLE_NOTIFY,
+						GATTRIB_ALL_HANDLES,
 						notif_handler, batt, NULL);
 
 	if (batt->chars == NULL) {
