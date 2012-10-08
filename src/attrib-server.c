@@ -1011,6 +1011,8 @@ static void channel_handler(const uint8_t *ipdu, uint16_t len,
 	case ATT_OP_HANDLE_CNF:
 		return;
 	case ATT_OP_HANDLE_IND:
+		length = enc_confirmation(opdu, channel->mtu);
+		break;
 	case ATT_OP_HANDLE_NOTIFY:
 		/* The attribute client is already handling these */
 		return;

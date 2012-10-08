@@ -2362,6 +2362,14 @@ static void att_browse_cb(gpointer user_data)
 {
 	struct att_callbacks *attcb = user_data;
 	struct btd_device *device = attcb->user_data;
+	uint8_t *opdu;
+	uint16_t olen;
+	size_t plen;
+
+	opdu = g_attrib_get_buffer(device->attrib, &plen);
+	olen = enc_confirmation(opdu, plen);
+
+	g_attrib_send(device->attrib, 0, opdu, olen, NULL, NULL, NULL);
 
 	gatt_discover_primary(device->attrib, NULL, primary_cb,
 							device->browse);
@@ -2386,6 +2394,15 @@ int device_browse_primary(struct btd_device *device, DBusMessage *msg,
 	device->browse = req;
 
 	if (device->attrib) {
+		uint8_t *opdu;
+		uint16_t olen;
+		size_t plen;
+
+		opdu = g_attrib_get_buffer(device->attrib, &plen);
+		olen = enc_confirmation(opdu, plen);
+		g_attrib_send(device->attrib, 0, opdu, olen,
+						NULL, NULL, NULL);
+
 		gatt_discover_primary(device->attrib, NULL, primary_cb, req);
 		goto done;
 	}
