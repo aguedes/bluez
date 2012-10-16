@@ -847,6 +847,41 @@ Set Device ID Command
 	a Command Status event on failure.
 
 
+Add Remote Wakeup Device
+========================
+
+	Command Code:		0x0029
+	Controller Index:	<controller id>
+	Command Parameters:	Address (6 Octets)
+				Address_Type (1 Octet)
+
+	This command should be used to register remote devices able to
+	wake up the system from suspend.
+
+	For LE, it is possible to add as much devices as the controller white
+	list supports.
+
+	For BR/EDR, only one device can be added.
+
+	This command generates a Command Complete event on success or
+	a Command Status event on failure.
+
+
+Remove Remote Wakeup Device
+===========================
+
+	Command Code:		0x002a
+	Controller Index:	<controller id>
+	Command Parameters:	Address (6 Octets)
+				Address_Type (1 Octet)
+
+	This command should be used to unregister remote devices able to
+	wake up the system from suspend.
+
+	This command generates a Command Complete event on success or
+	a Command Status event on failure.
+
+
 Command Complete Event
 ======================
 
