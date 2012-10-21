@@ -211,7 +211,7 @@ builtin_sources += profiles/health/hdp_main.c profiles/health/hdp_types.h \
 endif
 
 if GATTMODULES
-builtin_modules += thermometer alert time gatt_example proximity deviceinfo \
+builtin_modules += thermometer alert time gatt_example proximity  \
 			gatt scanparam heartrate battery
 builtin_sources += profiles/thermometer/main.c \
 			profiles/thermometer/manager.h \
@@ -235,11 +235,6 @@ builtin_sources += profiles/thermometer/main.c \
 			profiles/proximity/linkloss.c \
 			profiles/proximity/immalert.h \
 			profiles/proximity/immalert.c \
-			profiles/deviceinfo/main.c \
-			profiles/deviceinfo/manager.h \
-			profiles/deviceinfo/manager.c \
-			profiles/deviceinfo/deviceinfo.h \
-			profiles/deviceinfo/deviceinfo.c \
 			profiles/gatt/main.c profiles/gatt/manager.h \
 			profiles/gatt/manager.c profiles/gatt/gas.h \
 			profiles/gatt/gas.c \

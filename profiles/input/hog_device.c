@@ -549,8 +549,8 @@ static void forward_report(struct hog_device *hogdev,
 	int size;
 	guint type;
 
-	data = ev->u.output.data;
-	size = ev->u.output.size;
+	data = &ev->u.output.data[1];
+	size = ev->u.output.size -1;
 
 	switch (ev->type) {
 	case UHID_OUTPUT:
@@ -572,6 +572,8 @@ static void forward_report(struct hog_device *hogdev,
 
 	DBG("Sending report type %d to device 0x%04X handle 0x%X", type,
 				hogdev->id, report->decl->value_handle);
+
+	DBG("output size %d", size);
 
 	if (report->decl->properties & ATT_CHAR_PROPER_WRITE)
 		gatt_write_char(hogdev->attrib, report->decl->value_handle,
