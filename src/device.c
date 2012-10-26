@@ -117,6 +117,11 @@ struct attio_data {
 	gpointer user_data;
 };
 
+struct pnpid_notifier {
+	pnpid_ready_func func;
+	void *user_data;
+};
+
 typedef void (*attio_error_cb) (const GError *gerr, gpointer user_data);
 typedef void (*attio_success_cb) (gpointer user_data);
 
@@ -175,6 +180,8 @@ struct btd_device {
 	GIOChannel      *att_io;
 	guint		cleanup_id;
 	uint16_t	att_mtu;
+
+	GSList		*pnpid_notifiers;
 };
 
 static uint16_t uuid_list[] = {
@@ -281,6 +288,7 @@ static void device_free(gpointer user_data)
 	g_slist_free_full(device->attios, g_free);
 	g_slist_free_full(device->attios_offline, g_free);
 	g_slist_free_full(device->batteries, battery_free);
+	g_slist_free_full(device->pnpid_notifiers, g_free);
 
 	attio_cleanup(device);
 
@@ -3487,14 +3495,26 @@ gboolean btd_device_remove_attio_callback(struct btd_device *device, guint id)
 	return TRUE;
 }
 
-void device_set_pnpid(struct btd_device *device, uint8_t vendor_id_src,
+void btd_device_set_pnpid(struct btd_device *device, uint8_t vendor_id_src,
 			uint16_t vendor_id, uint16_t product_id,
 			uint16_t product_ver)
 {
+	GSList *l;
+
 	device_set_vendor(device, vendor_id);
 	device_set_vendor_src(device, vendor_id_src);
 	device_set_product(device, product_id);
 	device_set_version(device, product_ver);
+
+	for (l = device->pnpid_notifiers; l; l = l->next) {
+		struct pnpid_notifier *notifier = l->data;
+
+		notifier->func(notifier->user_data);
+		g_free(notifier);
+	}
+
+	g_slist_free(device->pnpid_notifiers);
+	device->pnpid_notifiers = NULL;
 }
 
 static void batteries_changed(struct btd_device *device)
@@ -3642,4 +3662,25 @@ gboolean btd_device_set_battery_opt(struct btd_battery *batt,
 	va_end(args);
 
 	return TRUE;
+}
+
+bool btd_device_register_pnpid_notifier(struct btd_device *device,
+				pnpid_ready_func notify, void *user_data)
+{
+	struct pnpid_notifier *notifier;
+
+	if (btd_device_get_vendor(device) ||
+			btd_device_get_vendor_src(device) ||
+			btd_device_get_product(device) ||
+			btd_device_get_version(device))
+		return false;
+
+	notifier = g_new0(struct pnpid_notifier, 1);
+
+	notifier->func = notify;
+	notifier->user_data = user_data;
+
+	device->pnpid_notifiers = g_slist_append(device->pnpid_notifiers,
+								notifier);
+	return true;
 }
