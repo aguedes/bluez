@@ -553,13 +553,43 @@ static void char_discovered_cb(GSList *chars, guint8 status, gpointer user_data)
 									hogdev);
 }
 
-static void output_written_cb(guint8 status, const guint8 *pdu,
-					guint16 plen, gpointer user_data)
+static void report_free(void *data)
 {
-	if (status != 0) {
-		error("Write output report failed: %s", att_ecode2str(status));
-		return;
+	struct report *report = data;
+	struct hog_device *hogdev = report->hogdev;
+
+	if (hogdev->attrib)
+		g_attrib_unregister(hogdev->attrib, report->notifyid);
+
+	g_free(report->decl);
+	g_free(report);
+}
+
+static void hog_device_free(struct hog_device *hogdev)
+{
+	btd_device_unref(hogdev->device);
+	g_slist_free_full(hogdev->reports, report_free);
+	g_free(hogdev->hog_primary);
+	g_free(hogdev->reportmap);
+	g_free(hogdev);
+}
+
+static void destroy_uhid_device(struct hog_device *hogdev)
+{
+	struct uhid_event ev;
+
+	if (hogdev->uhid_watch_id) {
+		g_source_remove(hogdev->uhid_watch_id);
+		hogdev->uhid_watch_id = 0;
 	}
+
+	memset(&ev, 0, sizeof(ev));
+	ev.type = UHID_DESTROY;
+	if (write(hogdev->uhid_fd, &ev, sizeof(ev)) < 0)
+		error("Failed to destroy uHID device: %s", strerror(errno));
+
+	close(hogdev->uhid_fd);
+	hogdev->uhid_fd = -1;
 }
 
 static gint report_type_cmp(gconstpointer a, gconstpointer b)
@@ -568,6 +598,15 @@ static gint report_type_cmp(gconstpointer a, gconstpointer b)
 	uint8_t type = GPOINTER_TO_UINT(b);
 
 	return report->type - type;
+}
+
+static void output_written_cb(guint8 status, const guint8 *pdu,
+					guint16 plen, gpointer user_data)
+{
+	if (status != 0) {
+		error("Write output report failed: %s", att_ecode2str(status));
+		return;
+	}
 }
 
 static void forward_report(struct hog_device *hogdev,
@@ -603,8 +642,10 @@ static void forward_report(struct hog_device *hogdev,
 	DBG("Sending report type %d to device 0x%04X handle 0x%X", type,
 				hogdev->id, report->decl->value_handle);
 
-	if (hogdev->attrib == NULL)
+	if (hogdev->attrib == NULL) {
+		destroy_uhid_device(hogdev);
 		return;
+	}
 
 	if (report->decl->properties & ATT_CHAR_PROPER_WRITE)
 		gatt_write_char(hogdev->attrib, report->decl->value_handle,
@@ -659,6 +700,27 @@ failed:
 	return FALSE;
 }
 
+static bool create_uhid_watch(struct hog_device *hogdev)
+{
+	GIOCondition cond = G_IO_IN | G_IO_ERR | G_IO_NVAL;
+	GIOChannel *io;
+
+	hogdev->uhid_fd = open(UHID_DEVICE_FILE, O_RDWR | O_CLOEXEC);
+	if (hogdev->uhid_fd < 0) {
+		error("Failed to open uHID device: %s(%d)", strerror(errno),
+									errno);
+		return false;
+	}
+
+	io = g_io_channel_unix_new(hogdev->uhid_fd);
+	g_io_channel_set_encoding(io, NULL, NULL);
+	hogdev->uhid_watch_id = g_io_add_watch(io, cond, uhid_event_cb,
+								hogdev);
+	g_io_channel_unref(io);
+
+	return true;
+}
+
 static void attio_connected_cb(GAttrib *attrib, gpointer user_data)
 {
 	struct hog_device *hogdev = user_data;
@@ -666,6 +728,9 @@ static void attio_connected_cb(GAttrib *attrib, gpointer user_data)
 	GSList *l;
 
 	hogdev->attrib = g_attrib_ref(attrib);
+
+	if (hogdev->uhid_watch_id == 0)
+		create_uhid_watch(hogdev);
 
 	if (hogdev->reports == NULL) {
 		gatt_discover_char(hogdev->attrib, prim->range.start,
@@ -717,49 +782,19 @@ static struct hog_device *hog_device_new(struct btd_device *device,
 	return hogdev;
 }
 
-static void report_free(void *data)
-{
-	struct report *report = data;
-	struct hog_device *hogdev = report->hogdev;
-
-	g_attrib_unregister(hogdev->attrib, report->notifyid);
-	g_free(report->decl);
-	g_free(report);
-}
-
-static void hog_device_free(struct hog_device *hogdev)
-{
-	btd_device_unref(hogdev->device);
-	g_slist_free_full(hogdev->reports, report_free);
-	g_free(hogdev->hog_primary);
-	g_free(hogdev->reportmap);
-	g_free(hogdev);
-}
-
 struct hog_device *hog_device_register(struct btd_device *device,
 						struct gatt_primary *prim)
 {
 	struct hog_device *hogdev;
-	GIOCondition cond = G_IO_IN | G_IO_ERR | G_IO_NVAL;
-	GIOChannel *io;
 
 	hogdev = hog_device_new(device, prim->range.start);
 	if (!hogdev)
 		return NULL;
 
-	hogdev->uhid_fd = open(UHID_DEVICE_FILE, O_RDWR | O_CLOEXEC);
-	if (hogdev->uhid_fd < 0) {
-		error("Failed to open uHID device: %s(%d)", strerror(errno),
-									errno);
+	if (!create_uhid_watch(hogdev)) {
 		hog_device_free(hogdev);
 		return NULL;
 	}
-
-	io = g_io_channel_unix_new(hogdev->uhid_fd);
-	g_io_channel_set_encoding(io, NULL, NULL);
-	hogdev->uhid_watch_id = g_io_add_watch(io, cond, uhid_event_cb,
-								hogdev);
-	g_io_channel_unref(io);
 
 	hogdev->hog_primary = g_memdup(prim, sizeof(*prim));
 
@@ -775,22 +810,9 @@ struct hog_device *hog_device_register(struct btd_device *device,
 
 int hog_device_unregister(struct hog_device *hogdev)
 {
-	struct uhid_event ev;
-
 	btd_device_remove_attio_callback(hogdev->device, hogdev->attioid);
 
-	if (hogdev->uhid_watch_id) {
-		g_source_remove(hogdev->uhid_watch_id);
-		hogdev->uhid_watch_id = 0;
-	}
-
-	memset(&ev, 0, sizeof(ev));
-	ev.type = UHID_DESTROY;
-	if (write(hogdev->uhid_fd, &ev, sizeof(ev)) < 0)
-		error("Failed to destroy uHID device: %s", strerror(errno));
-
-	close(hogdev->uhid_fd);
-	hogdev->uhid_fd = -1;
+	destroy_uhid_device(hogdev);
 
 	hog_device_free(hogdev);
 
