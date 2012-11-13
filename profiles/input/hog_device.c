@@ -416,12 +416,12 @@ static void report_map_read_cb(guint8 status, const guint8 *pdu, guint16 plen,
 		}
 	}
 
+	hogdev->reportmap = g_memdup(value, vlen);
+	hogdev->reportmap_size = vlen;
+
 	if (btd_device_register_pnpid_notifier(hogdev->device,
-						pnpid_ready, hogdev)) {
-		hogdev->reportmap = g_memdup(value, vlen);
-		hogdev->reportmap_size = vlen;
+						pnpid_ready, hogdev))
 		return;
-	}
 
 	create_uhid_device(hogdev, value, vlen);
 }
@@ -743,6 +743,10 @@ static void attio_connected_cb(GAttrib *attrib, gpointer user_data)
 						char_discovered_cb, hogdev);
 		return;
 	}
+
+	if (hogdev->reportmap)
+		create_uhid_device(hogdev, hogdev->reportmap,
+						hogdev->reportmap_size);
 
 	for (l = hogdev->reports; l; l = l->next) {
 		struct report *r = l->data;
