@@ -180,7 +180,10 @@ static void char_free(gpointer user_data)
 
 	del_battery_char(c);
 
-	g_attrib_unregister(c->batt->attrib, c->notifyid);
+	if (c->notifyid && c->batt->attrib != NULL) {
+		g_attrib_unregister(c->batt->attrib, c->notifyid);
+		c->notifyid = 0;
+	}
 
 	g_slist_free_full(c->desc, g_free);
 
@@ -511,8 +514,10 @@ static void attio_disconnected_cb(gpointer user_data)
 	for (l = batt->chars; l; l = l->next) {
 		struct characteristic *c = l->data;
 
-		g_attrib_unregister(batt->attrib, c->notifyid);
-		c->notifyid = 0;
+		if (c->notifyid) {
+			g_attrib_unregister(batt->attrib, c->notifyid);
+			c->notifyid = 0;
+		}
 	}
 
 	g_attrib_unref(batt->attrib);
