@@ -231,7 +231,8 @@ static void store_adapter_info(struct btd_adapter *adapter)
 					adapter->pairable_timeout);
 
 	g_key_file_set_boolean(key_file, "General", "Discoverable",
-				adapter->discoverable);
+				adapter->discov_timeout ?
+				FALSE : adapter->discoverable);
 
 	if (adapter->discov_timeout != main_opts.discovto)
 		g_key_file_set_integer(key_file, "General",
