@@ -31,3 +31,4 @@ struct hog_device *hog_device_register(struct btd_device *device,
 						struct gatt_primary *prim);
 int hog_device_unregister(struct hog_device *hogdev);
 int hog_device_set_control_point(struct hog_device *hogdev, gboolean suspend);
+struct btd_device *hog_device_get_device(struct hog_device *hogdev);

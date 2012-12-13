@@ -106,6 +106,9 @@ static int hog_device_probe(struct btd_profile *p, struct btd_device *device,
 
 static void remove_device(gpointer hogdev, gpointer b)
 {
+	if (hog_device_get_device(hogdev) != b)
+		return;
+
 	devices = g_slist_remove(devices, hogdev);
 	hog_device_unregister(hogdev);
 }
@@ -116,7 +119,7 @@ static void hog_device_remove(struct btd_profile *p, struct btd_device *device)
 
 	DBG("path %s", path);
 
-	g_slist_foreach(devices, remove_device, NULL);
+	g_slist_foreach(devices, remove_device, device);
 }
 
 static struct btd_profile hog_profile = {

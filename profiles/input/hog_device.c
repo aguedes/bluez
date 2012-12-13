@@ -789,3 +789,8 @@ int hog_device_set_control_point(struct hog_device *hogdev, gboolean suspend)
 
 	return 0;
 }
+
+struct btd_device *hog_device_get_device(struct hog_device *hogdev)
+{
+	return hogdev->device;
+}
