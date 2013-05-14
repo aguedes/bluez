@@ -63,6 +63,7 @@ tools/bluetooth-player
 tools/l2cap-tester
 test/sap_client.pyc
 test/bluezutils.pyc
+test/gatt-service
 unit/test-eir
 unit/test-uuid
 unit/test-textfile
