@@ -64,6 +64,7 @@ tools/l2cap-tester
 tools/sco-tester
 test/sap_client.pyc
 test/bluezutils.pyc
+test/gatt-service
 unit/test-eir
 unit/test-uuid
 unit/test-crc
