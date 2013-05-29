@@ -71,6 +71,61 @@ struct discover_char {
 	void *user_data;
 };
 
+typedef void (*btd_attr_read_result_t) (int err, uint8_t *value, size_t len,
+		void *user_data);
+
+typedef void (*btd_attr_write_result_t) (int err, void *user_data);
+
+typedef void (*btd_attr_read_t) (btd_attr_read_result_t result, void *user_data);
+typedef void (*btd_attr_write_t) (uint8_t *value, size_t len, uint16_t offset,
+			btd_attr_write_result_t result, void *user_data);
+
+/* This callback handles characteristic indication and notification */
+typedef void (*btd_attr_value_t) (uint8_t *value, size_t len, void *user_data);
+
+struct btd_attribute {
+	uint16_t handle;
+	bt_uuid_t type;
+	btd_attr_read_t read_cb;
+	btd_attr_write_t write_cb;
+	uint16_t value_len;
+	uint8_t value[0];
+};
+
+GList *attribute_database = NULL;
+
+static struct btd_attribute *new_attribute(bt_uuid_t *type,
+						btd_attr_read_t read_cb,
+						btd_attr_read_t write_cb)
+{
+	struct btd_attribute *attr = g_new0(struct btd_attribute, 1);
+
+	memcpy(&attr->type, type, sizeof(*type));
+	attr->read_cb = read_cb;
+	attr->write_cb = write_cb;
+
+	return attr;
+}
+
+static struct btd_attribute *new_const_attribute(bt_uuid_t *type,
+							uint8_t *value,
+							uint16_t len)
+{
+	struct btd_attribute *attr = g_malloc0(sizeof(struct btd_attribute) +
+						len);
+
+	memcpy(&attr->type, type, sizeof(*type));
+	memcpy(&attr->value, value, len);
+	attr->value_len = len;
+
+	return attr;
+}
+
+GList *add_attribute(GList *attr_database, struct btd_attribute *attr)
+{
+	return g_list_append(attr_database, attr);
+}
+
 static void discover_primary_free(struct discover_primary *dp)
 {
 	g_slist_free_full(dp->primaries, g_free);
