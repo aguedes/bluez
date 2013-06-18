@@ -2163,6 +2163,8 @@ struct btd_device *device_create_from_storage(struct btd_adapter *adapter,
 	load_info(device, srcaddr, address, key_file);
 	load_att_info(device, srcaddr, address);
 
+	gatt_load_from_storage(device);
+
 	return device;
 }
 
