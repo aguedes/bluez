@@ -106,7 +106,6 @@ struct notifier {
 struct channel {
 	struct btd_device *device;
 	GAttrib *attrib;
-	uint16_t mtu;
 	unsigned int id;
 };
 
@@ -1685,6 +1684,7 @@ static void read_by_type_result(int err, uint8_t *value, size_t vlen,
 {
 	struct read_by_type_transaction *trans = user_data;
 	struct channel *channel = trans->channel;
+	uint16_t mtu = g_attrib_get_mtu(channel->attrib);
 	GList *head = trans->match;
 	struct btd_attribute *attr = head->data;
 
@@ -1702,8 +1702,7 @@ static void read_by_type_result(int err, uint8_t *value, size_t vlen,
 	 */
 
 	if (trans->olen == 0) {
-		trans->vlen = MIN((uint16_t) (channel->mtu - 4),
-							MIN(vlen, 253));
+		trans->vlen = MIN((uint16_t) (mtu - 4), MIN(vlen, 253));
 
 		/* First entry: Set handle-value length */
 		trans->opdu[trans->olen++] = ATT_OP_READ_BY_TYPE_RESP;
@@ -1713,7 +1712,7 @@ static void read_by_type_result(int err, uint8_t *value, size_t vlen,
 		goto send;
 
 	/* It there space enough for another handle-value pair? */
-	if (trans->olen + 2 + trans->vlen > channel->mtu)
+	if (trans->olen + 2 + trans->vlen > mtu)
 		goto send;
 
 	/* Copy attribute handle into opdu */
@@ -1776,7 +1775,7 @@ static void read_by_type(struct channel *channel, const uint8_t *ipdu,
 		return;
 	}
 
-	trans = g_malloc0(sizeof(*trans) + channel->mtu);
+	trans = g_malloc0(sizeof(*trans) + g_attrib_get_mtu(channel->attrib));
 	trans->channel = channel; /* Weak reference */
 
 	for (list = local_attribute_db; list; list = g_list_next(list)) {
@@ -1877,7 +1876,7 @@ static void read_request_result(int err, uint8_t *value, size_t len,
 	struct att_transaction *trans = user_data;
 	struct channel *channel = trans->channel;
 	struct btd_attribute *attr = trans->attr;
-	uint8_t opdu[channel->mtu];
+	uint8_t opdu[g_attrib_get_mtu(channel->attrib)];
 	size_t olen;
 
 	g_free(trans);
@@ -1887,7 +1886,7 @@ static void read_request_result(int err, uint8_t *value, size_t len,
 		return;
 	}
 
-	olen = enc_read_resp(value, len, opdu, channel->mtu);
+	olen = enc_read_resp(value, len, opdu, sizeof(opdu));
 
 	g_attrib_send(channel->attrib, 0, opdu, olen, NULL, NULL, NULL);
 }
@@ -1931,9 +1930,9 @@ static void read_request(struct channel *channel, const uint8_t *ipdu,
 	}
 
 	if (attr->value_len > 0) {
-		uint8_t opdu[channel->mtu];
+		uint8_t opdu[g_attrib_get_mtu(channel->attrib)];
 		size_t olen = enc_read_resp(attr->value, attr->value_len, opdu,
-								channel->mtu);
+								sizeof(opdu));
 
 		g_attrib_send(channel->attrib, 0, opdu, olen, NULL, NULL,
 									NULL);
@@ -1956,7 +1955,8 @@ static void read_request(struct channel *channel, const uint8_t *ipdu,
 static void read_by_group_resp(struct channel *channel, uint16_t start,
 					uint16_t end, bt_uuid_t *pattern)
 {
-	uint8_t opdu[channel->mtu];
+	uint16_t mtu = g_attrib_get_mtu(channel->attrib);
+	uint8_t opdu[mtu];
 	GList *list;
 	struct btd_attribute *last = NULL;
 	uint8_t *group_start, *group_end = NULL, *group_uuid;
@@ -1999,7 +1999,7 @@ static void read_by_group_resp(struct channel *channel, uint16_t start,
 		 * MTU checking should not be shifted up, otherwise the
 		 * handle of last end group will not be set properly.
 		 */
-		if ((plen + group_len) >= channel->mtu)
+		if ((plen + group_len) >= mtu)
 			break;
 
 		/* Start Grouping handle */
@@ -2084,7 +2084,7 @@ static void read_by_group(struct channel *channel, const uint8_t *ipdu,
 static void value_changed(struct channel *channel, const uint8_t *ipdu,
 								size_t ilen)
 {
-	uint8_t opdu[channel->mtu];
+	uint8_t opdu[g_attrib_get_mtu(channel->attrib)];
 	struct btd_attribute *attr;
 	struct notifier *notif;
 	GHashTableIter iter;
@@ -2154,7 +2154,7 @@ static void write_cmd(struct channel *channel, const uint8_t *ipdu,
 	GList *list;
 	struct btd_attribute *attr;
 	size_t vlen;
-	uint8_t value[channel->mtu];
+	uint8_t value[g_attrib_get_mtu(channel->attrib)];
 	uint8_t status;
 
 	if (dec_write_cmd(ipdu, ilen, &handle, value, &vlen) == 0)
@@ -2186,7 +2186,7 @@ static void write_request_result(int err, void *user_data)
 	struct att_transaction *trans = user_data;
 	struct btd_attribute *attr = trans->attr;
 	struct channel *channel = trans->channel;
-	uint8_t opdu[channel->mtu];
+	uint8_t opdu[g_attrib_get_mtu(channel->attrib)];
 	uint16_t olen;
 
 	if (err != 0)
@@ -2208,7 +2208,7 @@ static void write_request(struct channel *channel,
 	struct btd_attribute *attr;
 	size_t vlen;
 	uint16_t handle;
-	uint8_t value[channel->mtu];
+	uint8_t value[g_attrib_get_mtu(channel->attrib)];
 	uint8_t status;
 
 	if (dec_write_req(ipdu, ilen, &handle, value, &vlen) == 0) {
@@ -2330,7 +2330,6 @@ static void channel_handler_cb(const uint8_t *ipdu, uint16_t ilen,
 void gatt_connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 {
 	struct channel *channel;
-	uint16_t mtu, cid;
 	char src[18], dst[18];
 	struct btd_adapter *adapter;
 	struct btd_device *device;
@@ -2346,8 +2345,6 @@ void gatt_connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 	if (!bt_io_get(io, NULL,
 			BT_IO_OPT_SOURCE_BDADDR, &sba,
 			BT_IO_OPT_DEST_BDADDR, &dba,
-			BT_IO_OPT_CID, &cid,
-			BT_IO_OPT_IMTU, &mtu,
 			BT_IO_OPT_INVALID))
 		return;
 
@@ -2369,12 +2366,10 @@ void gatt_connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 	channel = g_new0(struct channel, 1);
 	channel->device = btd_device_ref(device);
 	channel->attrib = g_attrib_new(io);
-	channel->mtu = (cid == ATT_CID ? ATT_DEFAULT_LE_MTU : mtu);
 
 	g_hash_table_insert(channels, btd_device_ref(device), channel);
 
-	DBG("%p Connected: %s < %s CID: %d, MTU: %d", channel, src, dst,
-								cid, mtu);
+	DBG("%p Connected: %s < %s", channel, src, dst);
 
 	g_attrib_register(channel->attrib, GATTRIB_ALL_EVENTS,
 				GATTRIB_ALL_HANDLES, channel_handler_cb,
