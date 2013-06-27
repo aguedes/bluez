@@ -1398,7 +1398,8 @@ static unsigned int foreach_by_info(struct foreach_data *data, uint16_t start)
 }
 
 unsigned int gatt_foreach_by_info(GAttrib *attrib, uint16_t start, uint16_t end,
-				gatt_func_by_info_t func, void *user_data)
+				gatt_func_by_info_t func, void *user_data,
+				GDestroyNotify destroy)
 {
 	struct foreach_data *data;
 
@@ -1408,6 +1409,7 @@ unsigned int gatt_foreach_by_info(GAttrib *attrib, uint16_t start, uint16_t end,
 	data->func_by_info = func;
 	data->end = end;
 	data->user_data = user_data;
+	data->destroy = destroy;
 
 	return foreach_by_type(data, start);
 }
