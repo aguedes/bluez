@@ -149,13 +149,17 @@ struct find_info {
 	int refcount;
 };
 
+struct gatt_device {
+	GAttrib *attrib;
+	GList *database;
+};
+
 static GList *local_attribute_db = NULL;
 static unsigned int next_nofifier_id = 1;
 static uint16_t next_handle = 1;
 static GIOChannel *bredr_io = NULL;
 static GIOChannel *le_io = NULL;
-static GHashTable *gattrib_hash = NULL;
-static GHashTable *database_hash = NULL;
+static GHashTable *gatt_devices = NULL;
 
 static GSList *attr_proxy_list = NULL;
 
@@ -248,6 +252,15 @@ static void destroy_attribute(struct btd_attribute *attr)
 	g_free(attr);
 }
 
+static void gatt_device_free(gpointer user_data)
+{
+	struct gatt_device *gdev = user_data;
+
+	g_attrib_unref(gdev->attrib);
+	g_list_free_full(gdev->database, (GDestroyNotify) destroy_attribute);
+	g_free(gdev);
+}
+
 /* new_const_attribute - Create a new fixed value attribute.
  * @type:	Attribute type in ATT byte order.
  * @value:	Value of the attribute in ATT byte order.
@@ -302,9 +315,8 @@ static int attribute_cmp(gconstpointer a, gconstpointer b)
 static void remote_database_add(struct btd_device *device,
 					struct btd_attribute *attr)
 {
-	GList *database = g_hash_table_lookup(database_hash, device);
-	database = g_list_insert_sorted(database, attr, attribute_cmp);
-	g_hash_table_insert(database_hash, device, database);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
+	gdev->database = g_list_insert_sorted(gdev->database, attr, attribute_cmp);
 }
 
 struct btd_attribute *btd_gatt_add_service(bt_uuid_t *uuid, bool primary)
@@ -424,11 +436,11 @@ void btd_gatt_add_char_desc(bt_uuid_t *uuid, btd_attr_read_t read_cb,
 
 GSList *btd_gatt_get_services(struct btd_device *device, bt_uuid_t *service)
 {
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	GList *list;
 	GSList *services = NULL;
-	GList *database = g_hash_table_lookup(database_hash, device);
 
-	for (list = g_list_first(database); list; list = g_list_next(list)) {
+	for (list = g_list_first(gdev->database); list; list = g_list_next(list)) {
 		struct btd_attribute *attr = list->data;
 
 		if (is_service(attr)) {
@@ -458,14 +470,14 @@ GSList *btd_gatt_get_chars_decl(struct btd_device *device,
 					struct btd_attribute *service,
 					bt_uuid_t *type)
 {
-	GList *database = g_hash_table_lookup(database_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	GList *list;
 	GSList *chars = NULL;
 
-	if (!database)
+	if (!gdev->database)
 		return NULL;
 
-	list = g_list_find(database, service);
+	list = g_list_find(gdev->database, service);
 	if (!list)
 		goto error;
 
@@ -496,13 +508,13 @@ struct btd_attribute *btd_gatt_get_char_desc(struct btd_device *device,
 						struct btd_attribute *chr,
 						bt_uuid_t *type)
 {
-	GList *database = g_hash_table_lookup(database_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	GList *list;
 
-	if (!database)
+	if (!gdev->database)
 		goto error;
 
-	list = g_list_find(database, chr);
+	list = g_list_find(gdev->database, chr);
 	if (!list)
 		goto error;
 
@@ -522,13 +534,13 @@ error:
 struct btd_attribute *btd_gatt_get_char_value(struct btd_device *device,
 						struct btd_attribute *chr)
 {
-	GList *database = g_hash_table_lookup(database_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	GList *list;
 
-	if (!database)
+	if (!gdev->database)
 		return NULL;
 
-	list = g_list_find(database, chr);
+	list = g_list_find(gdev->database, chr);
 	if (!list)
 		return NULL;
 
@@ -541,9 +553,9 @@ void btd_gatt_read_attribute(struct btd_device *device,
 					btd_attr_read_result_t result,
 					void *user_data)
 {
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 
-	if (attrib == NULL)
+	if (gdev->attrib == NULL)
 		result(ECOMM, NULL, 0, user_data);
 
 	if (attr->read_cb)
@@ -574,11 +586,10 @@ static void client_read_attribute_cb(struct btd_device *device,
 						btd_attr_read_result_t result,
 						void *user_data)
 {
-	GAttrib *attrib;
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	struct attr_read_data *data;
 
-	attrib = g_hash_table_lookup(gattrib_hash, device);
-	if (attrib == NULL) {
+	if (gdev->attrib == NULL) {
 		DBG("ATT disconnected");
 		result(ECOMM, NULL, 0, user_data);
 		return;
@@ -588,7 +599,7 @@ static void client_read_attribute_cb(struct btd_device *device,
 	data->func = result;
 	data->user_data = user_data;
 
-	if (gatt_read_char(attrib, attr->handle,
+	if (gatt_read_char(gdev->attrib, attr->handle,
 				client_read_attribute_response, data) == 0) {
 		result(EIO, NULL, 0, user_data);
 		g_free(data);
@@ -601,9 +612,9 @@ void btd_gatt_write_attribute(struct btd_device *device,
 				btd_attr_write_result_t result,
 				void *user_data)
 {
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 
-	if (attrib == NULL)
+	if (gdev->attrib == NULL)
 		result(ECOMM, user_data);
 
 	if (attr->write_cb)
@@ -629,11 +640,10 @@ static void client_write_attribute_cb(struct btd_device *device,
 					btd_attr_write_result_t result,
 					void *user_data)
 {
-	GAttrib *attrib;
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	struct attr_write_data *data;
 
-	attrib = g_hash_table_lookup(gattrib_hash, device);
-	if (attrib == NULL) {
+	if (gdev->attrib == NULL) {
 		result(ECOMM, user_data);
 		return;
 	}
@@ -642,7 +652,7 @@ static void client_write_attribute_cb(struct btd_device *device,
 	data->func = result;
 	data->user_data = user_data;
 
-	if (gatt_write_char(attrib, attr->handle, offset, value, len,
+	if (gatt_write_char(gdev->attrib, attr->handle, offset, value, len,
 				client_write_attribute_response, data) == 0) {
 		result(EIO, user_data);
 		g_free(data);
@@ -1559,20 +1569,20 @@ static bool prim_service_register(struct btd_device *device,
 static bool characteristic_register(struct btd_device *device,
 					struct btd_attribute *attr)
 {
-	GList *database = g_hash_table_lookup(database_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	struct attribute_iface *iface;
 	struct btd_attribute *parent;
 	char *path;
 	bool ret = true;
 
-	if (!database)
+	if (!gdev->database)
 		return false;
 
 	iface = g_new0(struct attribute_iface, 1);
 	iface->attr = attr;
 	iface->device = device;
 
-	parent = find_parent_service(database, attr);
+	parent = find_parent_service(gdev->database, attr);
 
 	path = g_strdup_printf("%s/service%d/characteristics%d",
 			device_get_path(device), parent->handle, attr->handle);
@@ -1709,6 +1719,7 @@ static void descriptor_cb(uint8_t status, uint16_t handle,
 bool gatt_load_from_storage(struct btd_device *device)
 {
 	struct btd_adapter *adapter = device_get_adapter(device);
+	struct gatt_device *gdev;
 	char srcaddr[18], dstaddr[18];
 	char filename[PATH_MAX + 1];
 	char **groups, **group;
@@ -1732,6 +1743,9 @@ bool gatt_load_from_storage(struct btd_device *device)
 		g_key_file_free(key_file);
 		return false;
 	}
+
+	gdev = g_new0(struct gatt_device, 1);
+	g_hash_table_insert(gatt_devices, device, gdev);
 
 	groups = g_key_file_get_groups(key_file, NULL);
 
@@ -1869,7 +1883,8 @@ static void add_gatt(void)
 
 static void channel_remove(gpointer user_data)
 {
-	g_hash_table_remove(gattrib_hash, user_data);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, user_data);
+	gdev->attrib = NULL;
 }
 
 static uint8_t check_attribute_security(struct btd_attribute *attr,
@@ -1931,16 +1946,16 @@ static void read_by_type_result(int err, uint8_t *value, size_t vlen,
 {
 	struct read_by_type_transaction *trans = user_data;
 	struct btd_device *device = trans->device;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	GList *head = trans->match;
 	struct btd_attribute *attr = head->data;
 	uint16_t mtu;
 
-	if (attrib == NULL)
+	if (gdev->attrib == NULL)
 		goto done;
 
 	if (err) {
-		send_error(attrib, ATT_OP_READ_REQ, attr->handle,
+		send_error(gdev->attrib, ATT_OP_READ_REQ, attr->handle,
 							errno_to_att(err));
 		goto done;
 	}
@@ -1953,7 +1968,7 @@ static void read_by_type_result(int err, uint8_t *value, size_t vlen,
 	 * be included in this response.
 	 */
 
-	mtu = g_attrib_get_mtu(attrib);
+	mtu = g_attrib_get_mtu(gdev->attrib);
 	if (trans->olen == 0) {
 		trans->vlen = MIN((uint16_t) (mtu - 4), MIN(vlen, 253));
 
@@ -1989,7 +2004,8 @@ static void read_by_type_result(int err, uint8_t *value, size_t vlen,
 	return;
 
 send:
-	g_attrib_send(attrib, 0, trans->opdu, trans->olen, NULL, NULL, NULL);
+	g_attrib_send(gdev->attrib, 0, trans->opdu, trans->olen, NULL, NULL,
+									NULL);
 
 done:
 	g_source_remove(trans->timeout);
@@ -2123,24 +2139,25 @@ static void read_request_result(int err, uint8_t *value, size_t len,
 							void *user_data)
 {
 	struct att_transaction *trans = user_data;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, trans->device);
 	struct btd_attribute *attr = trans->attr;
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices,
+							trans->device);
 
 	g_free(trans);
 
-	if (attrib) {
-		uint8_t opdu[g_attrib_get_mtu(attrib)];
+	if (gdev->attrib) {
+		uint8_t opdu[g_attrib_get_mtu(gdev->attrib)];
 		size_t olen;
 
 		if (err) {
-			send_error(attrib, ATT_OP_READ_REQ, attr->handle,
+			send_error(gdev->attrib, ATT_OP_READ_REQ, attr->handle,
 							errno_to_att(err));
 			return;
 		}
 
 		olen = enc_read_resp(value, len, opdu, sizeof(opdu));
 
-		g_attrib_send(attrib, 0, opdu, olen, NULL, NULL, NULL);
+		g_attrib_send(gdev->attrib, 0, opdu, olen, NULL, NULL, NULL);
 	}
 }
 
@@ -2429,11 +2446,12 @@ static void write_request_result(int err, void *user_data)
 {
 	struct att_transaction *trans = user_data;
 	struct btd_attribute *attr = trans->attr;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, trans->device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices,
+							trans->device);
 	uint8_t opdu[ATT_DEFAULT_LE_MTU];
 	uint16_t olen;
 
-	if (attrib == NULL)
+	if (gdev->attrib == NULL)
 		goto done;
 
 	if (err != 0)
@@ -2442,7 +2460,7 @@ static void write_request_result(int err, void *user_data)
 	else
 		olen = enc_write_resp(opdu);
 
-	g_attrib_send(attrib, 0, opdu, olen, NULL, NULL, NULL);
+	g_attrib_send(gdev->attrib, 0, opdu, olen, NULL, NULL, NULL);
 
 done:
 	g_free(trans);
@@ -2509,7 +2527,7 @@ static void channel_handler_cb(const uint8_t *ipdu, uint16_t ilen,
 							gpointer user_data)
 {
 	struct btd_device *device = user_data;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 
 	switch (ipdu[0]) {
 	case ATT_OP_ERROR:
@@ -2517,19 +2535,19 @@ static void channel_handler_cb(const uint8_t *ipdu, uint16_t ilen,
 
 	/* Requests */
 	case ATT_OP_WRITE_CMD:
-		write_cmd(device, attrib, ipdu, ilen);
+		write_cmd(device, gdev->attrib, ipdu, ilen);
 		break;
 
 	case ATT_OP_WRITE_REQ:
-		write_request(device, attrib, ipdu, ilen);
+		write_request(device, gdev->attrib, ipdu, ilen);
 		break;
 
 	case ATT_OP_READ_REQ:
-		read_request(device, attrib, ipdu, ilen);
+		read_request(device, gdev->attrib, ipdu, ilen);
 		break;
 
 	case ATT_OP_READ_BY_TYPE_REQ:
-		read_by_type(device, attrib, ipdu, ilen);
+		read_by_type(device, gdev->attrib, ipdu, ilen);
 		break;
 
 	case ATT_OP_MTU_REQ:
@@ -2540,11 +2558,11 @@ static void channel_handler_cb(const uint8_t *ipdu, uint16_t ilen,
 	case ATT_OP_PREP_WRITE_REQ:
 	case ATT_OP_EXEC_WRITE_REQ:
 	case ATT_OP_SIGNED_WRITE_CMD:
-		send_error(attrib, ipdu[0], 0x0000, ATT_ECODE_REQ_NOT_SUPP);
+		send_error(gdev->attrib, ipdu[0], 0x0000, ATT_ECODE_REQ_NOT_SUPP);
 		break;
 
 	case ATT_OP_READ_BY_GROUP_REQ:
-		read_by_group(device, attrib, ipdu, ilen);
+		read_by_group(device, gdev->attrib, ipdu, ilen);
 		break;
 
 	/* Responses */
@@ -2565,7 +2583,7 @@ static void channel_handler_cb(const uint8_t *ipdu, uint16_t ilen,
 	/* Notification & Indication */
 	case ATT_OP_HANDLE_NOTIFY:
 	case ATT_OP_HANDLE_IND:
-		value_changed(attrib, ipdu, ilen);
+		value_changed(gdev->attrib, ipdu, ilen);
 		break;
 	}
 }
@@ -2573,8 +2591,9 @@ static void channel_handler_cb(const uint8_t *ipdu, uint16_t ilen,
 static void probe_profiles(gpointer user_data)
 {
 	struct find_info *find = user_data;
-	GList *list, *database = g_hash_table_lookup(database_hash,
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices,
 							find->device);
+	GList *list;
 	GSList *profiles = NULL;
 	bt_uuid_t prim_uuid, uuid128;
 
@@ -2586,12 +2605,12 @@ static void probe_profiles(gpointer user_data)
 	if (find->refcount > 0)
 		return;
 
-	if (database == NULL)
+	if (gdev->database == NULL)
 		goto done;
 
 	bt_uuid16_create(&prim_uuid, GATT_PRIM_SVC_UUID);
 
-	for (list = database; list; list = g_list_next(list)) {
+	for (list = gdev->database; list; list = g_list_next(list)) {
 		struct btd_attribute *attr = list->data;
 		char str[MAX_LEN_UUID_STR];
 
@@ -2616,7 +2635,7 @@ static void probe_profiles(gpointer user_data)
 
 done:
 	if (device_is_bonded(find->device) == TRUE)
-		database_store(find->device, database);
+		database_store(find->device, gdev->database);
 
 	btd_device_unref(find->device);
 	g_free(find);
@@ -2625,7 +2644,7 @@ done:
 static void char_declaration_complete(gpointer user_data)
 {
 	struct btd_device *device = user_data;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	struct find_info *find;
 	GList *list;
 	bt_uuid_t type;
@@ -2640,13 +2659,13 @@ static void char_declaration_complete(gpointer user_data)
 	find = g_new0(struct find_info, 1);
 	find->device = device; /* Weak reference */
 
-	for (list = g_hash_table_lookup(database_hash, device); list;
-						list = g_list_next(list)) {
-
+	for (list = gdev->database; list; list = g_list_next(list)) {
 		struct btd_attribute *attr, *value, *next;
 		uint16_t start, end;
 
 		attr = list->data;
+
+		/* Characteristic declaration? */
 		if (bt_uuid_cmp(&type, &attr->type) != 0)
 			continue;
 
@@ -2671,7 +2690,7 @@ static void char_declaration_complete(gpointer user_data)
 
 		find->refcount++;
 
-		gatt_foreach_by_info(attrib, start, end,
+		gatt_foreach_by_info(gdev->attrib, start, end,
 				descriptor_cb, find, probe_profiles);
 	}
 
@@ -2682,11 +2701,11 @@ static void char_declaration_complete(gpointer user_data)
 static void snd_service_complete(gpointer user_data)
 {
 	struct btd_device *device = user_data;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	bt_uuid_t uuid;
 
 	bt_uuid16_create(&uuid, GATT_CHARAC_UUID);
-	gatt_foreach_by_type(attrib, 0x0001, 0xffff, &uuid,
+	gatt_foreach_by_type(gdev->attrib, 0x0001, 0xffff, &uuid,
 					char_declaration_create, device,
 					char_declaration_complete);
 }
@@ -2694,32 +2713,32 @@ static void snd_service_complete(gpointer user_data)
 static void include_complete(gpointer user_data)
 {
 	struct btd_device *device = user_data;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	bt_uuid_t uuid;
 
 	bt_uuid16_create(&uuid, GATT_SND_SVC_UUID);
-	gatt_foreach_by_type(attrib, 0x0001, 0xffff, &uuid, snd_service_create,
-						device, snd_service_complete);
+	gatt_foreach_by_type(gdev->attrib, 0x0001, 0xffff, &uuid,
+			snd_service_create, device, snd_service_complete);
 }
 
 static void prim_service_complete(gpointer user_data)
 {
 	struct btd_device *device = user_data;
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	bt_uuid_t uuid;
 
 	bt_uuid16_create(&uuid, GATT_INCLUDE_UUID);
-	gatt_foreach_by_type(attrib, 0x0001, 0xffff, &uuid, include_create,
-						device, include_complete);
+	gatt_foreach_by_type(gdev->attrib, 0x0001, 0xffff, &uuid,
+				include_create, device, include_complete);
 
 }
 static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 {
-	char src[18], dst[18];
 	struct btd_adapter *adapter;
 	struct btd_device *device;
+	struct gatt_device *gdev;
+	char src[18], dst[18];
 	bt_uuid_t uuid;
-	GAttrib *attrib;
 	bdaddr_t sba;
 	bdaddr_t dba;
 
@@ -2755,12 +2774,17 @@ static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 		return;
 	}
 
-	attrib = g_attrib_new(io);
-	g_hash_table_insert(gattrib_hash, btd_device_ref(device), attrib);
+	gdev = g_hash_table_lookup(gatt_devices, device);
+	if (gdev == NULL) {
+		gdev = g_new0(struct gatt_device, 1);
+		g_hash_table_insert(gatt_devices, device, gdev);
+	}
 
-	DBG("%p Connected: %s < %s", attrib, src, dst);
+	gdev->attrib = g_attrib_new(io);
 
-	g_attrib_register(attrib, GATTRIB_ALL_EVENTS,
+	DBG("%p Connected: %s < %s", gdev->attrib, src, dst);
+
+	g_attrib_register(gdev->attrib, GATTRIB_ALL_EVENTS,
 				GATTRIB_ALL_HANDLES, channel_handler_cb,
 				device, NULL);
 
@@ -2778,7 +2802,7 @@ static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 	if (device_is_bonding(device, NULL) == TRUE)
 		return;
 
-	if (g_hash_table_lookup(database_hash, device)) {
+	if (gdev->database) {
 		struct btd_service *service = user_data;
 
 		if (service)
@@ -2795,7 +2819,7 @@ static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 	 */
 
 	bt_uuid16_create(&uuid, GATT_PRIM_SVC_UUID);
-	gatt_foreach_by_type(attrib, 0x0001, 0xffff, &uuid,
+	gatt_foreach_by_type(gdev->attrib, 0x0001, 0xffff, &uuid,
 				prim_service_create, btd_device_ref(device),
 				prim_service_complete);
 }
@@ -2836,20 +2860,20 @@ static int gatt_connect(struct btd_device *device, void *user_data)
 
 int gatt_discover_attributes(struct btd_device *device)
 {
-	GAttrib *attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	bt_uuid_t uuid;
 
-	if (attrib == NULL)
+	if (gdev == NULL || gdev->attrib == NULL)
 		return gatt_connect(device, NULL);
 
 	/* FIXME: */
-	if (g_hash_table_lookup(database_hash, device)) {
+	if (gdev->database) {
 		DBG("Attribute database found: skip discovery");
 		return 0;
 	}
 
 	bt_uuid16_create(&uuid, GATT_PRIM_SVC_UUID);
-	gatt_foreach_by_type(attrib, 0x0001, 0xffff, &uuid,
+	gatt_foreach_by_type(gdev->attrib, 0x0001, 0xffff, &uuid,
 				prim_service_create, btd_device_ref(device),
 				prim_service_complete);
 
@@ -2864,13 +2888,12 @@ void gatt_server_bind(GIOChannel *io)
 int btd_gatt_connect(struct btd_service *service)
 {
 	struct btd_device *device = btd_service_get_device(service);
-	GAttrib *attrib;
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 	int err;
 
-	attrib = g_hash_table_lookup(gattrib_hash, device);
-	if (attrib) {
+	if (gdev->attrib) {
 		/* Already connected */
-		g_attrib_ref(attrib);
+		gdev->attrib = g_attrib_ref(gdev->attrib);
 		btd_service_connecting_complete(service, 0);
 		return 0;
 	}
@@ -2888,13 +2911,11 @@ int btd_gatt_connect(struct btd_service *service)
 int btd_gatt_disconnect(struct btd_service *service)
 {
 	struct btd_device *device = btd_service_get_device(service);
-	GAttrib *attrib;
-
-	attrib = g_hash_table_lookup(gattrib_hash, device);
+	struct gatt_device *gdev = g_hash_table_lookup(gatt_devices, device);
 
 	btd_service_disconnecting_complete(service, 0);
 
-	g_attrib_unref(attrib);
+	g_attrib_unref(gdev->attrib);
 
 	return 0;
 }
@@ -2940,18 +2961,13 @@ void btd_gatt_service_manager_init(void)
 			"/org/bluez", "org.bluez.gatt.ServiceManager1",
 			methods, NULL, NULL, NULL, NULL);
 
-	gattrib_hash = g_hash_table_new_full(g_direct_hash, g_direct_equal,
+	gatt_devices = g_hash_table_new_full(g_direct_hash, g_direct_equal,
 					(GDestroyNotify) btd_device_unref,
-					(GDestroyNotify) g_attrib_unref);
-
-	database_hash = g_hash_table_new(g_direct_hash, g_direct_equal);
+					gatt_device_free);
 }
 
 void btd_gatt_service_manager_cleanup(void)
 {
-	GHashTableIter iter;
-	gpointer key, value;
-
 	g_dbus_unregister_interface(btd_get_dbus_connection(),
 			"/org/bluez", "org.bluez.gatt.ServiceManager1");
 
@@ -2965,15 +2981,5 @@ void btd_gatt_service_manager_cleanup(void)
 		g_io_channel_unref(bredr_io);
 	}
 
-	g_hash_table_destroy(gattrib_hash);
-
-	/* Temporary solution to free keys/values */
-	g_hash_table_iter_init(&iter, database_hash);
-	while (g_hash_table_iter_next(&iter, &key, &value)) {
-		GList *list = value;
-		g_list_free_full(list, (GDestroyNotify) destroy_attribute);
-		g_hash_table_iter_steal(&iter);
-	}
-
-	g_hash_table_destroy(database_hash);
+	g_hash_table_destroy(gatt_devices);
 }
