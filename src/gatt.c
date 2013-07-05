@@ -2669,7 +2669,6 @@ done:
 	if (device_is_bonded(find->device) == TRUE)
 		database_store(find->device, gdev->database);
 
-	btd_device_unref(find->device);
 	g_free(find);
 }
 
