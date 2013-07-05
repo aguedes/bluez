@@ -2946,7 +2946,8 @@ int gatt_discover_attributes(struct btd_device *device)
 
 void gatt_device_remove(struct btd_device *device)
 {
-	g_hash_table_remove(gatt_devices, device);
+	if (gatt_devices)
+		g_hash_table_remove(gatt_devices, device);
 }
 
 void gatt_server_bind(GIOChannel *io)
@@ -3069,4 +3070,5 @@ void btd_gatt_service_manager_cleanup(void)
 	}
 
 	g_hash_table_destroy(gatt_devices);
+	gatt_devices = NULL;
 }
