@@ -3724,7 +3724,6 @@ static void adapter_remove(struct btd_adapter *adapter)
 	adapter->devices = NULL;
 
 	unload_drivers(adapter);
-	btd_adapter_gatt_server_stop(adapter);
 
 	g_slist_free(adapter->pin_callbacks);
 	adapter->pin_callbacks = NULL;
@@ -5394,8 +5393,6 @@ static int adapter_register(struct btd_adapter *adapter)
 	}
 
 	sdp_init_services_list(&adapter->bdaddr);
-
-	btd_adapter_gatt_server_start(adapter);
 
 	load_config(adapter);
 	fix_storage(adapter);
