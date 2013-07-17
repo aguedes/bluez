@@ -2888,54 +2888,39 @@ static void prim_service_complete(gpointer user_data)
 }
 static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 {
+	struct btd_service *service = user_data;
 	struct btd_adapter *adapter;
 	struct btd_device *device;
-	struct gatt_device *gdev;
+	struct gatt_device *gdev = NULL;
 	char src[18], dst[18];
 	bt_uuid_t uuid;
 	bdaddr_t sba;
 	bdaddr_t dba;
+	int err = 0;
 
-	if (gerr) {
-		struct btd_service *service = user_data;
-
-		if (service)
-			btd_service_connecting_complete(service,
-							gerr->code);
-
-		error("ATT Connect: %s", gerr->message);
-		return;
-	}
-
-	if (!bt_io_get(io, NULL,
+	bt_io_get(io, NULL,
 			BT_IO_OPT_SOURCE_BDADDR, &sba,
 			BT_IO_OPT_DEST_BDADDR, &dba,
-			BT_IO_OPT_INVALID))
-		return;
+			BT_IO_OPT_INVALID);
 
 	ba2str(&sba, src);
 	ba2str(&dba, dst);
 
 	adapter = adapter_find(&sba);
-	if (!adapter) {
-		error("Can't find adapter %s", src);
-		return;
-	}
-
 	device = adapter_find_device(adapter, &dba);
-	if (device == NULL) {
-		error("Can't find device %s", dst);
-		return;
-	}
 
 	gdev = g_hash_table_lookup(gatt_devices, device);
+
+	if (gerr) {
+		err = gerr->code;
+		error("ATT Connect: %s", gerr->message);
+		goto done;
+	}
+
 	if (gdev == NULL) {
 		/* For incomming connections we may not have an gatt_device */
 		gdev = g_new0(struct gatt_device, 1);
 		g_hash_table_insert(gatt_devices, btd_device_ref(device), gdev);
-	} else {
-		g_io_channel_unref(gdev->io);
-		gdev->io = NULL;
 	}
 
 	gdev->attrib = g_attrib_new(io);
@@ -2949,16 +2934,6 @@ static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 	gdev->channel_id = g_io_add_watch_full(io, G_PRIORITY_DEFAULT,
 				G_IO_ERR | G_IO_HUP, channel_watch_cb,
 				device, (GDestroyNotify) channel_remove);
-
-	if (user_data) {
-		/* User data is only present when called from
-		 * btd_gatt_connect()
-		 */
-		struct btd_service *service = user_data;
-
-		gdev->services = g_slist_append(gdev->services,
-					btd_service_ref(service));
-	}
 
 	/*
 	 * FIXME: Check storage before triggering attributes discovery.
@@ -2974,12 +2949,7 @@ static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 		/* Attributes already discovered, we may continue informing
 		 * the services that the device is connected
 		 */
-		struct btd_service *service = user_data;
-
-		if (service)
-			btd_service_connecting_complete(service, 0);
-
-		return;
+		goto done;
 	}
 
 	/*
@@ -2993,6 +2963,26 @@ static void connect_cb(GIOChannel *io, GError *gerr, void *user_data)
 	gatt_foreach_by_type(gdev->attrib, 0x0001, 0xffff, &uuid,
 				prim_service_create, device,
 				prim_service_complete);
+	return;
+
+done:
+
+	/* io and service are set for outgoing connections only */
+	if (gdev == NULL || gdev->io == NULL)
+		return;
+
+	btd_service_connecting_complete(service, err);
+
+	g_io_channel_unref(gdev->io);
+	gdev->io = NULL;
+
+	if (err)
+		return;
+
+	gdev->attrib = g_attrib_ref(gdev->attrib);
+
+	gdev->services = g_slist_append(gdev->services,
+					btd_service_ref(service));
 }
 
 static int gatt_connect(struct btd_device *device, void *user_data)
