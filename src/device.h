@@ -130,5 +130,7 @@ bool device_remove_svc_complete_callback(struct btd_device *dev,
 struct btd_service *btd_device_get_service(struct btd_device *dev,
 						const char *remote_uuid);
 
+void btd_device_service_foreach(struct btd_device *dev, GFunc func,
+							void *user_data);
 void btd_device_init(void);
 void btd_device_cleanup(void);
