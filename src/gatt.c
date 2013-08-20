@@ -1065,10 +1065,9 @@ static void database_store(struct btd_device *device, GList *database)
 	g_key_file_free(key_file);
 }
 
-static struct btd_attribute *new_const_remote_attribute(
-					struct btd_device *device,
-					uint16_t handle, uint16_t type,
-					uint8_t *value, size_t vlen)
+static struct btd_attribute *new_const_remote_attribute(uint16_t handle,
+						uint16_t type, uint8_t *value,
+						size_t vlen)
 {
 	struct btd_attribute *attr;
 	bt_uuid_t uuid;
@@ -1081,9 +1080,8 @@ static struct btd_attribute *new_const_remote_attribute(
 	return attr;
 }
 
-static struct btd_attribute *new_remote_attribute(
-					struct btd_device *device,
-					uint16_t handle, bt_uuid_t *type,
+static struct btd_attribute *new_remote_attribute(uint16_t handle,
+					bt_uuid_t *type,
 					btd_attr_read_t read_cb,
 					btd_attr_write_t write_cb)
 {
@@ -1117,8 +1115,8 @@ static void prim_service_create(uint8_t status, uint16_t handle,
 	if (status)
 		return;
 
-	attr = new_const_remote_attribute(device, handle, GATT_PRIM_SVC_UUID,
-								value, vlen);
+	attr = new_const_remote_attribute(handle, GATT_PRIM_SVC_UUID,
+							value, vlen);
 	remote_database_add(device, attr);
 }
 
@@ -1131,8 +1129,8 @@ static void snd_service_create(uint8_t status, uint16_t handle,
 	if (status)
 		return;
 
-	attr = new_const_remote_attribute(device, handle,
-					GATT_SND_SVC_UUID, value, vlen);
+	attr = new_const_remote_attribute(handle, GATT_SND_SVC_UUID,
+							value, vlen);
 
 	remote_database_add(device, attr);
 }
@@ -1153,8 +1151,8 @@ static void char_declaration_create(uint8_t status,
 		return;
 
 	/* Characteristic Declaration */
-	attr = new_const_remote_attribute(device, handle, GATT_CHARAC_UUID,
-								value, vlen);
+	attr = new_const_remote_attribute(handle, GATT_CHARAC_UUID,
+							value, vlen);
 
 	remote_database_add(device, attr);
 
@@ -1180,8 +1178,8 @@ static void char_declaration_create(uint8_t status,
 	else if (value_properties & ATT_CHAR_PROPER_WRITE_WITHOUT_RESP)
 		write_cb = remote_write_without_resp_cb;
 
-	attr = new_remote_attribute(device, value_handle, &value_uuid,
-							read_cb, write_cb);
+	attr = new_remote_attribute(value_handle, &value_uuid,
+						read_cb, write_cb);
 
 	remote_database_add(device, attr);
 }
