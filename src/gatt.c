@@ -2038,11 +2038,6 @@ static void value_changed(struct gatt_device *gdev, const uint8_t *ipdu,
 			cfm = false;
 	}
 
-	/* FIXME: See chr_get_value */
-#if 0
-	g_dbus_emit_property_changed(btd_get_dbus_connection(), path,
-					CHARACTERISTIC_INTERFACE, "Value");
-#endif
 	/*
 	 * Below: Processing Indication. If at least one client/watcher
 	 * didn't get the data properly ATT confirmation should not be sent.
