@@ -1322,6 +1322,7 @@ static void register_objects(struct btd_device *device, struct gatt_device *gdev
 							service_path);
 		} else if (bt_uuid_cmp(&chr_uuid, &attr->type) == 0) {
 			char *path;
+			uint8_t properties = attr->value[0];
 
 			 /* Jump to Characteristic Value Attribute */
 
@@ -1333,6 +1334,7 @@ static void register_objects(struct btd_device *device, struct gatt_device *gdev
 			path = gatt_dbus_characteristic_register(device,
 							service_path,
 							attr->handle, uuidstr,
+							properties,
 							attr);
 			g_hash_table_insert(gdev->chr_objs,
 					GINT_TO_POINTER(attr->handle), path);
