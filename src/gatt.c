@@ -1235,9 +1235,15 @@ static void remote_ccc_enabled(int err, void *user_data)
 	if (err == 0)
 		return;
 
-	DBG("%p CCC write failed", attr);
+	DBG("(%p) 0x%04x CCC write failed", attr, attr->handle);
 
-	/* FIXME: Reset internal flag of CCC value control */
+	/*
+	 * Reset copy of CCC descriptor value. A new attempt to enable
+	 * notification or indication will be triggered in the next
+	 * connection establishment.
+	 */
+
+	memset(attr->value, 0, attr->value_len);
 }
 
 static void descriptor_cb(uint8_t status, uint16_t handle,
@@ -1287,7 +1293,7 @@ static void descriptor_cb(uint8_t status, uint16_t handle,
 						find->device);
 
 	btd_gatt_write_attribute(find->device, attr, value, sizeof(value),
-					0x00, remote_ccc_enabled, NULL);
+					0x00, remote_ccc_enabled, attr);
 }
 
 static void register_objects(struct btd_device *device, struct gatt_device *gdev)
