@@ -546,12 +546,12 @@ int main(int argc, char *argv[])
 
 	g_dbus_set_flags(gdbus_flags);
 
-	gatt_init();
-
 	if (option_compat == TRUE)
 		sdp_flags |= SDP_SERVER_COMPAT;
 
 	start_sdp_server(sdp_mtu, sdp_flags);
+
+	gatt_init();
 
 	/* Loading plugins has to be done after D-Bus has been setup since
 	 * the plugins might wanna expose some paths on the bus. However the
