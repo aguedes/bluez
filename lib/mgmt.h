@@ -319,6 +319,12 @@ struct mgmt_cp_set_device_id {
 	uint16_t version;
 } __packed;
 
+#define MGMT_OP_LOAD_AUTO_CONN_ADDRS	0x0029
+struct mgmt_cp_load_auto_conn_addrs {
+	uint16_t count;
+	struct mgmt_addr_info addrs[0];
+} __packed;
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	uint16_t opcode;
