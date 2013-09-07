@@ -180,6 +180,8 @@ static void find_gatt(struct btd_device *device)
 	attr = list->data;
 	g_slist_free(list);
 
+	/* FIXME: Handled by the core already */
+
 	/* Get Service Changed CCC */
 	bt_uuid16_create(&uuid, GATT_CLIENT_CHARAC_CFG_UUID);
 	attr = btd_gatt_get_char_desc(device, attr, &uuid);
