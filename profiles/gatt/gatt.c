@@ -36,6 +36,8 @@
 #include "attrib/att.h"
 #include "log.h"
 
+static unsigned int service_state_id = 0;
+
 static void read_device_name_chr_cb(int err, uint8_t *value, size_t len,
 							void *user_data)
 {
@@ -205,7 +207,7 @@ static int gatt_driver_probe(struct btd_service *service)
 {
 	DBG("Probing device");
 
-	btd_service_add_state_cb(state_changed, service);
+	service_state_id = btd_service_add_state_cb(state_changed, service);
 
 	return 0;
 }
@@ -213,6 +215,8 @@ static int gatt_driver_probe(struct btd_service *service)
 static void gatt_driver_remove(struct btd_service *service)
 {
 	DBG("Removing device");
+
+	btd_service_remove_state_cb(service_state_id);
 }
 
 static struct btd_profile gatt_profile = {
