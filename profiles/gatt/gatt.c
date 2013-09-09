@@ -101,7 +101,7 @@ static bool service_changed(uint8_t *value, size_t len, void *user_data)
 	return true;
 }
 
-static void find_gatt(struct btd_device *device)
+static int setup_gatt(struct btd_device *device)
 {
 	struct btd_attribute *gatt, *attr;
 	bt_uuid_t uuid;
@@ -111,17 +111,17 @@ static void find_gatt(struct btd_device *device)
 	list = btd_gatt_get_services(device, &uuid);
 	if (!list) {
 		error("<<GATT Service>> is mandatory");
-		return;
+		return -EIO;
 	}
 
-	/* Get Service Changed declaration */
+	/* Get Service Changed declaration: Optional in the client */
 	gatt = list->data;
 	g_slist_free(list);
 	bt_uuid16_create(&uuid, GATT_CHARAC_SERVICE_CHANGED);
 	list = btd_gatt_get_chars_decl(device, gatt, &uuid);
 	if (!list) {
 		DBG("<<GATT Service>>: Service Changed not found");
-		return;
+		return 0;
 	}
 
 	attr = list->data;
@@ -132,11 +132,13 @@ static void find_gatt(struct btd_device *device)
 	attr = btd_gatt_get_char_desc(device, attr, &uuid);
 	if (attr == NULL) {
 		DBG("<<GATT Service>>: Service Changed CCC not found");
-		return;
+		return 0;
 	}
 
 	/* Monitor remote Service Changed indication */
 	btd_gatt_add_notifier(attr, service_changed, device);
+
+	return 0;
 }
 
 static void state_changed(struct btd_service *service,
@@ -153,7 +155,6 @@ static void state_changed(struct btd_service *service,
 		return;
 
 	refresh_gap(device);
-	find_gatt(device);
 }
 
 static int setup_gap(struct btd_device *device)
@@ -203,6 +204,10 @@ static int gatt_driver_probe(struct btd_service *service)
 	int err;
 
 	err = setup_gap(device);
+	if (err < 0)
+		return err;
+
+	err = setup_gatt(device);
 	if (err < 0)
 		return err;
 
