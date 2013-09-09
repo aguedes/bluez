@@ -25,6 +25,7 @@
 #endif
 
 #include <glib.h>
+#include <errno.h>
 
 #include "lib/uuid.h"
 #include "plugin.h"
@@ -37,6 +38,8 @@
 #include "log.h"
 
 static unsigned int service_state_id = 0;
+static struct btd_attribute *name = NULL;
+static struct btd_attribute *appearance = NULL;
 
 static void read_device_name_chr_cb(int err, uint8_t *value, size_t len,
 							void *user_data)
@@ -49,29 +52,10 @@ static void read_device_name_chr_cb(int err, uint8_t *value, size_t len,
 	}
 
 	value[len - 1] = '\0';
+
+	DBG("<<Device Name>>: %s", value);
+
 	device_set_name(device, (char *) value);
-}
-
-static void read_device_name_chr(struct btd_device *device,
-						struct btd_attribute *gap)
-{
-	struct btd_attribute *chr, *chr_value;
-	bt_uuid_t uuid;
-	GSList *list;
-
-	bt_uuid16_create(&uuid, GATT_CHARAC_DEVICE_NAME);
-	list = btd_gatt_get_chars_decl(device, gap, &uuid);
-	if (!list) {
-		error("<<Device Name>> characteristic is mandatory");
-		return;
-	}
-
-	chr = list->data;
-	g_slist_free(list);
-
-	chr_value = btd_gatt_get_char_value(device, chr);
-	btd_gatt_read_attribute(device, chr_value, read_device_name_chr_cb,
-								device);
 }
 
 static void read_appearance_chr_cb(int err, uint8_t *value, size_t len,
@@ -86,49 +70,18 @@ static void read_appearance_chr_cb(int err, uint8_t *value, size_t len,
 	}
 
 	appearance = att_get_u16(value);
+
+	DBG("Device <<Appearance>>: 0x%04X", appearance);
+
 	device_set_appearance(device, appearance);
 }
 
-static void read_appearance_chr(struct btd_device *device,
-						struct btd_attribute *gap)
+static void refresh_gap(struct btd_device *device)
 {
-	struct btd_attribute *chr, *chr_value;
-	bt_uuid_t uuid;
-	GSList *list;
+	btd_gatt_read_attribute(device, name, read_device_name_chr_cb, device);
 
-	bt_uuid16_create(&uuid, GATT_CHARAC_APPEARANCE);
-	list = btd_gatt_get_chars_decl(device, gap, &uuid);
-	if (!list) {
-		error("<<Appearance>> characteristic is mandatory");
-		return;
-	}
-
-	chr = list->data;
-	g_slist_free(list);
-
-	chr_value = btd_gatt_get_char_value(device, chr);
-	btd_gatt_read_attribute(device, chr_value, read_appearance_chr_cb,
+	btd_gatt_read_attribute(device, appearance, read_appearance_chr_cb,
 								device);
-}
-
-static void find_gap(struct btd_device *device)
-{
-	struct btd_attribute *gap;
-	bt_uuid_t uuid;
-	GSList *list;
-
-	bt_uuid16_create(&uuid, GENERIC_ACCESS_PROFILE_ID);
-	list = btd_gatt_get_services(device, &uuid);
-	if (!list) {
-		error("<<GAP Service>> is mandatory");
-		return;
-	}
-
-	gap = list->data;
-	g_slist_free(list);
-
-	read_device_name_chr(device, gap);
-	read_appearance_chr(device, gap);
 }
 
 static bool service_changed(uint8_t *value, size_t len, void *user_data)
@@ -199,13 +152,59 @@ static void state_changed(struct btd_service *service,
 	if (new_state != BTD_SERVICE_STATE_CONNECTED)
 		return;
 
-	find_gap(device);
+	refresh_gap(device);
 	find_gatt(device);
+}
+
+static int setup_gap(struct btd_device *device)
+{
+	struct btd_attribute *gap;
+	bt_uuid_t uuid;
+	GSList *list;
+
+	DBG("Probing device");
+
+	bt_uuid16_create(&uuid, GENERIC_ACCESS_PROFILE_ID);
+	list = btd_gatt_get_services(device, &uuid);
+	if (!list) {
+		error("<<GAP Service>> is mandatory");
+		return -EIO;
+	}
+
+	gap = list->data;
+	g_slist_free(list);
+
+	bt_uuid16_create(&uuid, GATT_CHARAC_DEVICE_NAME);
+	list = btd_gatt_get_chars_decl(device, gap, &uuid);
+	if (!list) {
+		error("<<Device Name>> characteristic is mandatory");
+		return -EIO;
+	}
+
+	name = btd_gatt_get_char_value(device, list->data);
+	g_slist_free(list);
+
+	bt_uuid16_create(&uuid, GATT_CHARAC_APPEARANCE);
+	list = btd_gatt_get_chars_decl(device, gap, &uuid);
+	if (!list) {
+		error("<<Appearance>> characteristic is mandatory");
+		return -EIO;
+	}
+
+	appearance = btd_gatt_get_char_value(device, list->data);
+	g_slist_free(list);
+
+	return 0;
 }
 
 static int gatt_driver_probe(struct btd_service *service)
 {
-	DBG("Probing device");
+	struct btd_device *device = btd_service_get_device(service);
+	int err;
+
+	err = setup_gap(device);
+	if (err < 0)
+		return err;
 
 	service_state_id = btd_service_add_state_cb(state_changed, service);
 
