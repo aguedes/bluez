@@ -131,16 +131,11 @@ static void find_gap(struct btd_device *device)
 	read_appearance_chr(device, gap);
 }
 
-static void ccc_written(int err, void *user_data)
-{
-	DBG("Service Changed CCC enabled");
-}
-
 static bool service_changed(uint8_t *value, size_t len, void *user_data)
 {
 	uint16_t start, end;
 
-	DBG("Service Changed: %zu", len);
+	DBG("Remote Service Changed: %zu", len);
 
 	if (len != 4)
 		return true;
@@ -158,7 +153,6 @@ static void find_gatt(struct btd_device *device)
 	struct btd_attribute *gatt, *attr;
 	bt_uuid_t uuid;
 	GSList *list;
-	uint8_t ccc[2];
 
 	bt_uuid16_create(&uuid, GENERIC_ATTRIB_PROFILE_ID);
 	list = btd_gatt_get_services(device, &uuid);
@@ -180,8 +174,6 @@ static void find_gatt(struct btd_device *device)
 	attr = list->data;
 	g_slist_free(list);
 
-	/* FIXME: Handled by the core already */
-
 	/* Get Service Changed CCC */
 	bt_uuid16_create(&uuid, GATT_CLIENT_CHARAC_CFG_UUID);
 	attr = btd_gatt_get_char_desc(device, attr, &uuid);
@@ -190,13 +182,7 @@ static void find_gatt(struct btd_device *device)
 		return;
 	}
 
-	DBG("Enabling Service Changed CCC on handle %p", attr);
-
-	/* Enable indication */
-	att_put_u16(0x0002, &ccc);
-	btd_gatt_write_attribute(device, attr, ccc, sizeof(ccc), 0,
-							ccc_written, NULL);
-
+	/* Monitor remote Service Changed indication */
 	btd_gatt_add_notifier(attr, service_changed, device);
 }
 
