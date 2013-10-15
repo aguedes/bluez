@@ -3078,19 +3078,6 @@ static gboolean attrib_disconnected_cb(GIOChannel *io, GIOCondition cond,
 
 	g_slist_foreach(device->attios, attio_disconnected, NULL);
 
-	if (!device_get_auto_connect(device)) {
-		DBG("Automatic connection disabled");
-		goto done;
-	}
-
-	/*
-	 * Keep scanning/re-connection active if disconnection reason
-	 * is connection timeout, remote user terminated connection or local
-	 * initiated disconnection.
-	 */
-	if (err == ETIMEDOUT || err == ECONNRESET || err == ECONNABORTED)
-		adapter_connect_list_add(device->adapter, device);
-
 done:
 	attio_cleanup(device);
 
