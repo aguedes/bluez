@@ -376,6 +376,20 @@ struct mgmt_rp_get_conn_info {
 	int8_t max_tx_power;
 } __packed;
 
+struct mgmt_conn_param_info {
+	struct mgmt_addr_info addr;
+	uint16_t min_interval;
+	uint16_t max_interval;
+	uint16_t latency;
+	uint16_t supervision_timeout;
+} __packed;
+
+#define MGMT_OP_LOAD_CONN_PARAMS	0x0032
+struct mgmt_cp_load_conn_params {
+	uint16_t param_count;
+	struct mgmt_conn_param_info params[0];
+} __packed;
+
 #define MGMT_EV_CMD_COMPLETE		0x0001
 struct mgmt_ev_cmd_complete {
 	uint16_t opcode;
