@@ -531,6 +531,16 @@ struct mgmt_ev_new_csrk {
 	struct mgmt_csrk_info key;
 } __packed;
 
+#define MGMT_EV_NEW_CONN_PARAM		0x001a
+struct mgmt_ev_new_conn_param {
+	struct mgmt_addr_info addr;
+	uint8_t store_hint;
+	uint16_t min_interval;
+	uint16_t max_interval;
+	uint16_t latency;
+	uint16_t timeout;
+} __packed;
+
 static const char *mgmt_op[] = {
 	"<0x0000>",
 	"Read Version",
