@@ -2423,6 +2423,58 @@ static void cmd_scan_params(struct mgmt *mgmt, uint16_t index,
 	}
 }
 
+static void conn_params_usage(void)
+{
+	printf("Usage: btmgmt conn-params addr addr_type min max latency "
+								"timeout");
+}
+
+static void conn_params_rsp(uint8_t status, uint16_t len, const void *param,
+								void *user_data)
+{
+	if (status != 0)
+		fprintf(stderr, "Load Conn Params failed with status 0x%02x "
+					"(%s)\n", status, mgmt_errstr(status));
+	else
+		printf("Connection parameters successfully loaded\n");
+
+	mainloop_quit();
+}
+
+static void cmd_conn_params(struct mgmt *mgmt, uint16_t index,
+							int argc, char **argv)
+{
+	struct mgmt_cp_load_conn_params cp;
+	uint16_t min, max, latency, timeout;
+
+	if (argc < 7) {
+		conn_params_usage();
+		exit(EXIT_FAILURE);
+	}
+
+	if (index == MGMT_INDEX_NONE)
+		index = 0;
+
+	min = strtol(argv[3], NULL, 0);
+	max = strtol(argv[4], NULL, 0);
+	latency = strtol(argv[5], NULL, 0);
+	timeout = strtol(argv[6], NULL, 0);
+
+	cp.param_count = 1;
+	str2ba(argv[1], &cp.params[0].addr.bdaddr);
+	cp.params[0].addr.type = strtol(argv[2], NULL, 0);
+	put_le16(min, &cp.params[0].min_interval);
+	put_le16(max, &cp.params[0].max_interval);
+	put_le16(latency, &cp.params[0].latency);
+	put_le16(timeout, &cp.params[0].supervision_timeout);
+
+	if (mgmt_send(mgmt, MGMT_OP_LOAD_CONN_PARAMS, index, sizeof(cp), &cp,
+					conn_params_rsp, NULL, NULL) == 0) {
+		fprintf(stderr, "Unable to send Load Conn Params cmd\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
 static struct {
 	char *cmd;
 	void (*func)(struct mgmt *mgmt, uint16_t index, int argc, char **argv);
@@ -2468,6 +2520,7 @@ static struct {
 	{ "conn-info",	cmd_conn_info,	"Get connection information"	},
 	{ "io-cap",	cmd_io_cap,	"Set IO Capability"		},
 	{ "scan-params",cmd_scan_params,"Set Scan Parameters"		},
+	{ "conn-params",cmd_conn_params,"Load connection parameters"	},
 	{ }
 };
 
