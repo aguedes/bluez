@@ -2404,6 +2404,7 @@ static void cmd_scan_params(struct mgmt *mgmt, uint16_t index,
 							int argc, char **argv)
 {
 	struct mgmt_cp_set_scan_params cp;
+	uint16_t interval, window;
 
 	if (argc < 3) {
 		scan_params_usage();
@@ -2413,8 +2414,11 @@ static void cmd_scan_params(struct mgmt *mgmt, uint16_t index,
 	if (index == MGMT_INDEX_NONE)
 		index = 0;
 
-	cp.interval = strtol(argv[1], NULL, 0);
-	cp.window = strtol(argv[2], NULL, 0);
+	interval = strtol(argv[1], NULL, 0);
+	window = strtol(argv[2], NULL, 0);
+
+	put_le16(interval, &cp.interval);
+	put_le16(window, &cp.window);
 
 	if (mgmt_send(mgmt, MGMT_OP_SET_SCAN_PARAMS, index, sizeof(cp), &cp,
 					scan_params_rsp, NULL, NULL) == 0) {
