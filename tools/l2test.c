@@ -935,8 +935,8 @@ static void recv_mode(int sk)
 
 		timersub(&tv_end, &tv_beg, &tv_diff);
 
-		syslog(LOG_INFO,"%s%ld bytes in %.2f sec, %.2f kB/s", ts, total,
-			tv2fl(tv_diff), (float)(total / tv2fl(tv_diff) ) / 1024.0);
+		syslog(LOG_INFO,"%s%ld bytes in %.2f sec, %.2f kbit/s", ts, total,
+			tv2fl(tv_diff), (float) 8 * (total / tv2fl(tv_diff) ) / 1024.0);
 	}
 }
 
