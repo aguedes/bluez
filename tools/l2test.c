@@ -632,13 +632,6 @@ static void do_listen(void (*handler)(int sk))
 							strerror(errno), errno);
 			goto error;
 		}
-		if (fork()) {
-			/* Parent */
-			close(nsk);
-			continue;
-		}
-		/* Child */
-		close(sk);
 
 		/* Set receive buffer size */
 		if (rcvbuf && setsockopt(nsk, SOL_SOCKET, SO_RCVBUF, &rcvbuf,
